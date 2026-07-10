@@ -1,0 +1,8396 @@
+<!DOCTYPE html><html lang="ja"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>フロアマップ エディタ</title>
+<style>
+:root{--bg:#0f141b;--panel:#1d2530;--panel2:#232c39;--line:#2b3543;--text:#eef2f7;--muted:#93a0b3;--gold:#e8b84b}
+*{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;font-family:-apple-system,"Hiragino Sans","Noto Sans JP",Meiryo,sans-serif;background:var(--bg);color:var(--text);-webkit-user-select:none;user-select:none}
+#app{display:flex;flex-direction:column;height:100%}
+.bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 10px;background:#161d27;border-bottom:1px solid var(--line);z-index:10}
+.bar .grp{display:flex;gap:4px;align-items:center;padding-right:8px;margin-right:2px;border-right:1px solid var(--line)}
+.bar .grp:last-child{border-right:none}
+.btn{background:var(--panel);border:1px solid var(--line);color:var(--text);height:34px;padding:0 11px;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+.btn:active{background:var(--panel2)}.btn.on{background:var(--gold);color:#10131a;border-color:var(--gold)}
+.btn.gold{background:var(--gold);color:#10131a;border-color:var(--gold)}
+.title{font-weight:800;color:var(--gold);font-size:15px;margin-right:6px}
+select.btn{height:34px}
+main{flex:1;position:relative;overflow:hidden;background:#fff}
+#svg{position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:default}
+.mtile{stroke:#fff;stroke-width:.5}
+.new-outline{stroke:#22c55e;stroke-width:1.9;pointer-events:none}
+.tnum{font-size:4.3px;font-weight:700;font-family:Helvetica,Arial,sans-serif;pointer-events:none}
+.zlab{font-weight:800;text-anchor:middle;paint-order:stroke;stroke:#fff;stroke-width:5px;opacity:.92;pointer-events:none}
+.faclabel{text-anchor:middle;font-weight:800;pointer-events:none}
+.sel-island{fill:none;stroke:#10b3ff;stroke-width:2;stroke-dasharray:4 3;pointer-events:none}
+.sel-fac{fill:none;stroke:#10b3ff;stroke-width:2;pointer-events:none}
+.handle{fill:#10b3ff;stroke:#fff;stroke-width:1.2;cursor:nwse-resize}
+.grabsel{fill:none;stroke:#ff8c1a;stroke-width:2;pointer-events:none}
+.pv{stroke:#fff;stroke-width:.5;pointer-events:none}
+.hint{position:absolute;left:10px;bottom:10px;background:rgba(13,16,20,.82);border:1px solid var(--line);color:#cdd6e2;font-size:12px;padding:7px 11px;border-radius:8px;max-width:60%;line-height:1.5}
+.zoom{position:absolute;right:10px;bottom:10px;display:flex;flex-direction:column;gap:1px;background:var(--line);border-radius:9px;overflow:hidden;border:1px solid var(--line)}
+.zoom button{width:38px;height:38px;border:none;background:var(--panel);color:var(--text);font-size:18px;cursor:pointer}.zoom button:active{background:var(--gold);color:#10131a}
+#panel{position:absolute;right:10px;top:10px;width:210px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;display:none;z-index:9}
+#panel.show{display:block}
+#panel h4{margin:0 0 9px;font-size:13px;color:var(--gold)}
+#panel label{display:block;font-size:11px;color:var(--muted);margin:8px 0 3px}
+#panel input,#panel select{width:100%;height:32px;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:7px;padding:0 8px;font-size:13px}
+#panel .row2{display:flex;gap:8px}#panel .row2>div{flex:1}
+#panel .del{margin-top:11px;width:100%;height:34px;background:#7a2230;border:1px solid #99303f;color:#fff;border-radius:8px;font-weight:700;cursor:pointer}
+.toast{position:absolute;left:50%;top:54px;transform:translateX(-50%);background:#10131a;border:1px solid var(--line);color:#fff;font-size:13px;padding:8px 14px;border-radius:999px;opacity:0;transition:opacity .25s;pointer-events:none;z-index:20}
+.toast.show{opacity:1}
+</style></head><body>
+<div id="app">
+ <div class="bar">
+  <span class="title">フロアマップ エディタ</span>
+  <input class="btn" id="storeNameInput" type="text" placeholder="店舗名" style="width:170px;font-weight:800;color:var(--gold);background:var(--panel2)">
+  <div class="grp">
+   <button class="btn" id="mGrab5">5台ずつ</button>
+   <button class="btn" id="mGrab10">10台ずつ</button>
+   <button class="btn on" id="mIsland">島を動かす</button>
+   <button class="btn" id="mMachine">1台ずつ</button>
+   <button class="btn" id="mFac">設備を編集</button>
+   <button class="btn" id="mNew" style="border-color:#22c55e">新台指定</button>
+  </div>
+  <div class="grp">
+   <select class="btn" id="addType">
+    <option value="entrance">出入口</option><option value="toilet_m">男性トイレ</option><option value="toilet_w">女性トイレ</option>
+    <option value="settle">精算機</option><option value="change">両替機</option><option value="rest">休憩所</option>
+    <option value="counter">カウンター</option><option value="elevator">エレベーター</option><option value="blank">空白（色自由）</option>
+   </select>
+   <button class="btn" id="addBtn">＋設備を追加</button>
+  </div>
+  <div class="grp">
+   <button class="btn" id="undo">↶ 元に戻す</button>
+   <button class="btn" id="fit">⊙ 全体</button>
+   <button class="btn" id="rememberDefault">初期値記憶</button>
+   <button class="btn" id="resetDefault">初期化</button>
+  </div>
+  <div class="grp">
+   <button class="btn" id="load">読込</button>
+   <input type="file" id="file" accept=".csv,.json,.txt" hidden>
+   <button class="btn gold" id="expHtml">ビューア書出し(HTML)</button>
+   <button class="btn" id="expJson">JSON</button>
+   <button class="btn" id="expCsvM">台CSV</button>
+   <button class="btn" id="expCsvF">設備CSV</button>
+  </div>
+ </div>
+ <main>
+  <svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg>
+  <div class="hint" id="hint"></div>
+  <div class="zoom"><button id="zin">＋</button><button id="zout">−</button></div>
+  <div id="panel">
+   <h4>設備の編集</h4>
+   <label>種別</label>
+   <select id="pType"><option value="entrance">出入口</option><option value="toilet_m">男性トイレ</option><option value="toilet_w">女性トイレ</option><option value="settle">精算機</option><option value="change">両替機</option><option value="rest">休憩所</option><option value="counter">カウンター</option><option value="elevator">エレベーター</option><option value="blank">空白（色自由）</option></select>
+   <label>ラベル</label><input id="pLabel" type="text">
+   <label>色（空白用）</label><input id="pColor" type="color" value="#88a0c0" style="width:100%;height:34px;border:none;background:none;padding:0;cursor:pointer">
+   <div class="row2"><div><label>列</label><input id="pCol" type="number"></div><div><label>行</label><input id="pRow" type="number"></div></div>
+   <div class="row2"><div><label>幅</label><input id="pW" type="number" min="1"></div><div><label>高さ</label><input id="pH" type="number" min="1"></div></div>
+   <button class="del" id="pDel">この設備を削除</button>
+  </div>
+  <div class="toast" id="toast"></div>
+ </main>
+</div>
+<script>
+const DEFAULT_DB={
+ "store": "モナコパレス1000駅前店",
+ "rates": [
+  {
+   "key": "p4",
+   "label": "4円",
+   "kind": "パチンコ",
+   "color": "#e5322c"
+  },
+  {
+   "key": "p1",
+   "label": "1円",
+   "kind": "パチンコ",
+   "color": "#f7941d"
+  },
+  {
+   "key": "s20",
+   "label": "20円",
+   "kind": "スロット",
+   "color": "#3f8fd6"
+  },
+  {
+   "key": "s5",
+   "label": "5円",
+   "kind": "スロット",
+   "color": "#f2cf1a"
+  }
+ ],
+ "machines": [
+  {
+   "no": 1,
+   "rate": "p1",
+   "name": "PA大海物語5ARBC",
+   "col": 9,
+   "row": 11
+  },
+  {
+   "no": 2,
+   "rate": "p1",
+   "name": "PA大海物語5ARBC",
+   "col": 10,
+   "row": 11
+  },
+  {
+   "no": 3,
+   "rate": "p1",
+   "name": "PA大海物語5ARBC",
+   "col": 11,
+   "row": 11
+  },
+  {
+   "no": 5,
+   "rate": "p1",
+   "name": "PA大海物語5ARBC",
+   "col": 12,
+   "row": 11
+  },
+  {
+   "no": 6,
+   "rate": "p1",
+   "name": "PA大海物語5ARBC",
+   "col": 13,
+   "row": 11
+  },
+  {
+   "no": 7,
+   "rate": "p1",
+   "name": "PA大海物語5ARBC",
+   "col": 14,
+   "row": 11
+  },
+  {
+   "no": 8,
+   "rate": "p1",
+   "name": "PA大海物語5ARBC",
+   "col": 15,
+   "row": 11
+  },
+  {
+   "no": 10,
+   "rate": "p1",
+   "name": "PA大海物語5ARBC",
+   "col": 16,
+   "row": 11
+  },
+  {
+   "no": 11,
+   "rate": "p1",
+   "name": "PA大海物語5ARBC",
+   "col": 17,
+   "row": 11
+  },
+  {
+   "no": 12,
+   "rate": "p1",
+   "name": "PA大海物語5ARBC",
+   "col": 18,
+   "row": 11
+  },
+  {
+   "no": 13,
+   "rate": "p1",
+   "name": "PA大海物語5ARBC",
+   "col": 19,
+   "row": 11
+  },
+  {
+   "no": 15,
+   "rate": "p1",
+   "name": "PA大海物語5ARBC",
+   "col": 20,
+   "row": 11
+  },
+  {
+   "no": 16,
+   "rate": "p1",
+   "name": "PA大海物語5ARBC",
+   "col": 21,
+   "row": 11
+  },
+  {
+   "no": 17,
+   "rate": "p1",
+   "name": "PA大海物語5ARBC",
+   "col": 22,
+   "row": 11
+  },
+  {
+   "no": 18,
+   "rate": "p1",
+   "name": "PA大海物語5ARBC",
+   "col": 23,
+   "row": 11
+  },
+  {
+   "no": 20,
+   "rate": "p1",
+   "name": "PA大海物語5ARBC",
+   "col": 24,
+   "row": 11
+  },
+  {
+   "no": 21,
+   "rate": "p1",
+   "name": "PA大海物語5ARBC",
+   "col": 25,
+   "row": 11
+  },
+  {
+   "no": 22,
+   "rate": "p1",
+   "name": "PA大海物語5ARBC",
+   "col": 26,
+   "row": 11
+  },
+  {
+   "no": 23,
+   "rate": "p1",
+   "name": "PA大海物語5ARBC",
+   "col": 27,
+   "row": 11
+  },
+  {
+   "no": 25,
+   "rate": "p1",
+   "name": "PA大海物語5ARBC",
+   "col": 28,
+   "row": 11
+  },
+  {
+   "no": 26,
+   "rate": "p1",
+   "name": "P北斗の拳強敵SSPA",
+   "col": 32,
+   "row": 11
+  },
+  {
+   "no": 27,
+   "rate": "p1",
+   "name": "P北斗の拳強敵SSPA",
+   "col": 33,
+   "row": 11
+  },
+  {
+   "no": 28,
+   "rate": "p1",
+   "name": "P戦国乙女7L0YU1",
+   "col": 34,
+   "row": 11
+  },
+  {
+   "no": 30,
+   "rate": "p1",
+   "name": "P戦国乙女7L0YU1",
+   "col": 35,
+   "row": 11
+  },
+  {
+   "no": 31,
+   "rate": "p1",
+   "name": "Pとある魔術の禁書目録2 Light JWX",
+   "col": 36,
+   "row": 11
+  },
+  {
+   "no": 32,
+   "rate": "p1",
+   "name": "P／Re：ゼロから始める異世界生活鬼がかりver／A03",
+   "col": 37,
+   "row": 11
+  },
+  {
+   "no": 33,
+   "rate": "p1",
+   "name": "PAフィーバーからくりサーカス2YF",
+   "col": 38,
+   "row": 11
+  },
+  {
+   "no": 35,
+   "rate": "p1",
+   "name": "PAフィーバーからくりサーカス2YF",
+   "col": 39,
+   "row": 11
+  },
+  {
+   "no": 36,
+   "rate": "p1",
+   "name": "PAアズールレーンTHE ANIMATION～異次元トリガー79Ver．～M2",
+   "col": 40,
+   "row": 11
+  },
+  {
+   "no": 37,
+   "rate": "p1",
+   "name": "Pデジハネ聖戦士ダンバイン2SSPB",
+   "col": 41,
+   "row": 11
+  },
+  {
+   "no": 38,
+   "rate": "p1",
+   "name": "P銀河鉄道999NJL0YU1Y",
+   "col": 42,
+   "row": 11
+  },
+  {
+   "no": 50,
+   "rate": "p1",
+   "name": "P銀河鉄道999NJL0YU1Y",
+   "col": 43,
+   "row": 11
+  },
+  {
+   "no": 51,
+   "rate": "p1",
+   "name": "PA真・花の慶次2N2－X1",
+   "col": 44,
+   "row": 11
+  },
+  {
+   "no": 52,
+   "rate": "p1",
+   "name": "PA乗物娘2N",
+   "col": 45,
+   "row": 11
+  },
+  {
+   "no": 53,
+   "rate": "p1",
+   "name": "P新・遠山の金さん 77Ver．JWZ",
+   "col": 46,
+   "row": 11
+  },
+  {
+   "no": 55,
+   "rate": "p1",
+   "name": "PA花の慶次～裂N3-VY",
+   "col": 47,
+   "row": 11
+  },
+  {
+   "no": 56,
+   "rate": "p1",
+   "name": "P中森明菜・歌姫伝説愛KD－NS",
+   "col": 48,
+   "row": 11
+  },
+  {
+   "no": 57,
+   "rate": "p1",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮Y",
+   "col": 49,
+   "row": 11
+  },
+  {
+   "no": 58,
+   "rate": "p1",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮Y",
+   "col": 50,
+   "row": 11
+  },
+  {
+   "no": 60,
+   "rate": "p1",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮Y",
+   "col": 51,
+   "row": 11
+  },
+  {
+   "no": 61,
+   "rate": "p1",
+   "name": "PAシン・エヴァンゲリオンY",
+   "col": 51,
+   "row": 15
+  },
+  {
+   "no": 62,
+   "rate": "p1",
+   "name": "PAシン・エヴァンゲリオンY",
+   "col": 50,
+   "row": 15
+  },
+  {
+   "no": 63,
+   "rate": "p1",
+   "name": "P真・花の慶次3N－K",
+   "col": 49,
+   "row": 15
+  },
+  {
+   "no": 65,
+   "rate": "p1",
+   "name": "PA野生の王国6N2",
+   "col": 48,
+   "row": 15
+  },
+  {
+   "no": 66,
+   "rate": "p1",
+   "name": "PAフィーバー真花月2Y",
+   "col": 47,
+   "row": 15
+  },
+  {
+   "no": 67,
+   "rate": "p1",
+   "name": "PAコマコマ倶楽部with坂本冬美V1",
+   "col": 46,
+   "row": 15
+  },
+  {
+   "no": 68,
+   "rate": "p1",
+   "name": "PAフィーバークィーンⅡYS",
+   "col": 45,
+   "row": 15
+  },
+  {
+   "no": 70,
+   "rate": "p1",
+   "name": "PフィーバークィーンⅡV",
+   "col": 44,
+   "row": 15
+  },
+  {
+   "no": 71,
+   "rate": "p1",
+   "name": "PA野生の王国5 N－K",
+   "col": 43,
+   "row": 15
+  },
+  {
+   "no": 72,
+   "rate": "p1",
+   "name": "PAコマコマ倶楽部with坂本冬美LOOP1",
+   "col": 42,
+   "row": 15
+  },
+  {
+   "no": 73,
+   "rate": "p1",
+   "name": "P冬のソナタMyMemoryMA2",
+   "col": 41,
+   "row": 15
+  },
+  {
+   "no": 75,
+   "rate": "p1",
+   "name": "Pデビルマン黄金黙示録N－K1 YT250",
+   "col": 40,
+   "row": 15
+  },
+  {
+   "no": 76,
+   "rate": "p1",
+   "name": "PA花の慶次～傾奇一転N",
+   "col": 39,
+   "row": 15
+  },
+  {
+   "no": 77,
+   "rate": "p1",
+   "name": "P消されたルパン9YU1Y",
+   "col": 38,
+   "row": 15
+  },
+  {
+   "no": 78,
+   "rate": "p1",
+   "name": "Pリング 呪いの7日間3 Light JVZ",
+   "col": 37,
+   "row": 15
+  },
+  {
+   "no": 80,
+   "rate": "p1",
+   "name": "P魔法少女まどか☆マギカ3MAJ1",
+   "col": 36,
+   "row": 15
+  },
+  {
+   "no": 81,
+   "rate": "p1",
+   "name": "PAフィーバー戦姫絶唱シンフォギア4YS",
+   "col": 35,
+   "row": 15
+  },
+  {
+   "no": 82,
+   "rate": "p1",
+   "name": "Pルパン三世137YR2",
+   "col": 34,
+   "row": 15
+  },
+  {
+   "no": 83,
+   "rate": "p1",
+   "name": "Pデジハネ北斗の拳慈母SSPC",
+   "col": 33,
+   "row": 15
+  },
+  {
+   "no": 85,
+   "rate": "p1",
+   "name": "Pデジハネ北斗の拳慈母SSPC",
+   "col": 32,
+   "row": 15
+  },
+  {
+   "no": 86,
+   "rate": "p1",
+   "name": "PA大海物語5HLD",
+   "col": 28,
+   "row": 15
+  },
+  {
+   "no": 87,
+   "rate": "p1",
+   "name": "PA大海物語5HLD",
+   "col": 27,
+   "row": 15
+  },
+  {
+   "no": 88,
+   "rate": "p1",
+   "name": "PA大海物語5HLD",
+   "col": 26,
+   "row": 15
+  },
+  {
+   "no": 100,
+   "rate": "p1",
+   "name": "PA大海物語5HLD",
+   "col": 25,
+   "row": 15
+  },
+  {
+   "no": 101,
+   "rate": "p1",
+   "name": "PA大海物語5HLD",
+   "col": 24,
+   "row": 15
+  },
+  {
+   "no": 102,
+   "rate": "p1",
+   "name": "PA新海物語ARBB",
+   "col": 23,
+   "row": 15
+  },
+  {
+   "no": 103,
+   "rate": "p1",
+   "name": "PA新海物語ARBB",
+   "col": 22,
+   "row": 15
+  },
+  {
+   "no": 105,
+   "rate": "p1",
+   "name": "PA新海物語ARBB",
+   "col": 21,
+   "row": 15
+  },
+  {
+   "no": 106,
+   "rate": "p1",
+   "name": "PA新海物語ARBB",
+   "col": 20,
+   "row": 15
+  },
+  {
+   "no": 107,
+   "rate": "p1",
+   "name": "PA新海物語ARBB",
+   "col": 19,
+   "row": 15
+  },
+  {
+   "no": 108,
+   "rate": "p1",
+   "name": "PA新海物語ARBB",
+   "col": 18,
+   "row": 15
+  },
+  {
+   "no": 110,
+   "rate": "p1",
+   "name": "PA新海物語ARBB",
+   "col": 17,
+   "row": 15
+  },
+  {
+   "no": 111,
+   "rate": "p1",
+   "name": "PA新海物語ARBB",
+   "col": 16,
+   "row": 15
+  },
+  {
+   "no": 112,
+   "rate": "p1",
+   "name": "PA新海物語ARBB",
+   "col": 15,
+   "row": 15
+  },
+  {
+   "no": 113,
+   "rate": "p1",
+   "name": "PA新海物語ARBB",
+   "col": 14,
+   "row": 15
+  },
+  {
+   "no": 115,
+   "rate": "p1",
+   "name": "PA新海物語ARBB",
+   "col": 13,
+   "row": 15
+  },
+  {
+   "no": 116,
+   "rate": "p1",
+   "name": "PA新海物語ARBB",
+   "col": 12,
+   "row": 15
+  },
+  {
+   "no": 117,
+   "rate": "p1",
+   "name": "PA新海物語ARBB",
+   "col": 11,
+   "row": 15
+  },
+  {
+   "no": 118,
+   "rate": "p1",
+   "name": "PA新海物語ARBB",
+   "col": 10,
+   "row": 15
+  },
+  {
+   "no": 120,
+   "rate": "p1",
+   "name": "PA新海物語ARBB",
+   "col": 9,
+   "row": 15
+  },
+  {
+   "no": 121,
+   "rate": "p1",
+   "name": "PAわんわんパラダイスV－GBA",
+   "col": 9,
+   "row": 16
+  },
+  {
+   "no": 122,
+   "rate": "p1",
+   "name": "PAわんわんパラダイスV－GBA",
+   "col": 10,
+   "row": 16
+  },
+  {
+   "no": 123,
+   "rate": "p1",
+   "name": "PAわんわんパラダイスV－GBA",
+   "col": 11,
+   "row": 16
+  },
+  {
+   "no": 125,
+   "rate": "p1",
+   "name": "PAスーパー海物語IN沖縄5SBA",
+   "col": 12,
+   "row": 16
+  },
+  {
+   "no": 126,
+   "rate": "p1",
+   "name": "PAスーパー海物語IN沖縄5SBA",
+   "col": 13,
+   "row": 16
+  },
+  {
+   "no": 127,
+   "rate": "p1",
+   "name": "PAスーパー海物語IN地中海2HLA",
+   "col": 14,
+   "row": 16
+  },
+  {
+   "no": 128,
+   "rate": "p1",
+   "name": "PAスーパー海物語IN地中海2HLA",
+   "col": 15,
+   "row": 16
+  },
+  {
+   "no": 130,
+   "rate": "p1",
+   "name": "PAスーパー海物語IN沖縄5YBA",
+   "col": 16,
+   "row": 16
+  },
+  {
+   "no": 131,
+   "rate": "p1",
+   "name": "PAスーパー海物語IN沖縄5YBA",
+   "col": 17,
+   "row": 16
+  },
+  {
+   "no": 132,
+   "rate": "p1",
+   "name": "PAスーパー海物語IN沖縄5YBA",
+   "col": 18,
+   "row": 16
+  },
+  {
+   "no": 133,
+   "rate": "p1",
+   "name": "PA海物語3R3LBAW",
+   "col": 19,
+   "row": 16
+  },
+  {
+   "no": 135,
+   "rate": "p1",
+   "name": "PA海物語3R3LBAW",
+   "col": 20,
+   "row": 16
+  },
+  {
+   "no": 136,
+   "rate": "p1",
+   "name": "PA海物語3R3LBAW",
+   "col": 21,
+   "row": 16
+  },
+  {
+   "no": 137,
+   "rate": "p1",
+   "name": "PA海物語3R3LBAW",
+   "col": 22,
+   "row": 16
+  },
+  {
+   "no": 138,
+   "rate": "p1",
+   "name": "PA海物語3R3LBAW",
+   "col": 23,
+   "row": 16
+  },
+  {
+   "no": 150,
+   "rate": "p1",
+   "name": "PA海物語3R3LBAW",
+   "col": 24,
+   "row": 16
+  },
+  {
+   "no": 151,
+   "rate": "p1",
+   "name": "PA海物語3R3LBAW",
+   "col": 25,
+   "row": 16
+  },
+  {
+   "no": 152,
+   "rate": "p1",
+   "name": "PA海物語3R3LBAW",
+   "col": 26,
+   "row": 16
+  },
+  {
+   "no": 153,
+   "rate": "p1",
+   "name": "PA海物語3R3LBAW",
+   "col": 27,
+   "row": 16
+  },
+  {
+   "no": 155,
+   "rate": "p1",
+   "name": "PA海物語3R3LBAW",
+   "col": 28,
+   "row": 16
+  },
+  {
+   "no": 156,
+   "rate": "p1",
+   "name": "P戦国無双N",
+   "col": 32,
+   "row": 16
+  },
+  {
+   "no": 157,
+   "rate": "p1",
+   "name": "P攻殻機動隊SAC＿2045AH－RS",
+   "col": 33,
+   "row": 16
+  },
+  {
+   "no": 158,
+   "rate": "p1",
+   "name": "Pフィーバー彼女、お借りしますLR",
+   "col": 34,
+   "row": 16
+  },
+  {
+   "no": 160,
+   "rate": "p1",
+   "name": "Pいくさの子戦極最強GRPJ",
+   "col": 35,
+   "row": 16
+  },
+  {
+   "no": 161,
+   "rate": "p1",
+   "name": "P黄門ちゃま9ME2",
+   "col": 36,
+   "row": 16
+  },
+  {
+   "no": 162,
+   "rate": "p1",
+   "name": "P黄門ちゃま9ME2",
+   "col": 37,
+   "row": 16
+  },
+  {
+   "no": 163,
+   "rate": "p1",
+   "name": "Pゴジラ対エヴァンゲリオン2LV",
+   "col": 38,
+   "row": 16
+  },
+  {
+   "no": 165,
+   "rate": "p1",
+   "name": "P緋弾のアリア～緋緋神降臨～88Ver．FVA",
+   "col": 39,
+   "row": 16
+  },
+  {
+   "no": 166,
+   "rate": "p1",
+   "name": "P大工の源さん超韋駄天2HLB",
+   "col": 40,
+   "row": 16
+  },
+  {
+   "no": 167,
+   "rate": "p1",
+   "name": "Pフィーバーかぐや様は告らせたいR",
+   "col": 41,
+   "row": 16
+  },
+  {
+   "no": 168,
+   "rate": "p1",
+   "name": "P真北斗無双FWQG",
+   "col": 42,
+   "row": 16
+  },
+  {
+   "no": 170,
+   "rate": "p1",
+   "name": "Pルパン三世14H1YZ4",
+   "col": 43,
+   "row": 16
+  },
+  {
+   "no": 171,
+   "rate": "p1",
+   "name": "Pゴジラ対エヴァンゲリオン2R",
+   "col": 44,
+   "row": 16
+  },
+  {
+   "no": 172,
+   "rate": "p1",
+   "name": "Pフィーバー炎炎ノ消防隊G",
+   "col": 45,
+   "row": 16
+  },
+  {
+   "no": 173,
+   "rate": "p1",
+   "name": "Pシン・エヴァンゲリオンX",
+   "col": 46,
+   "row": 16
+  },
+  {
+   "no": 175,
+   "rate": "p1",
+   "name": "Pシン・エヴァンゲリオンX",
+   "col": 47,
+   "row": 16
+  },
+  {
+   "no": 176,
+   "rate": "p1",
+   "name": "Pシン・エヴァンゲリオンX",
+   "col": 48,
+   "row": 16
+  },
+  {
+   "no": 177,
+   "rate": "p1",
+   "name": "P牙狼11～冴島大河～XX－MU",
+   "col": 49,
+   "row": 16
+  },
+  {
+   "no": 178,
+   "rate": "p1",
+   "name": "P牙狼11～冴島大河～XX－MU",
+   "col": 50,
+   "row": 16
+  },
+  {
+   "no": 180,
+   "rate": "p1",
+   "name": "P Re：ゼロから始める異世界生活 鬼がかりver． M08",
+   "col": 51,
+   "row": 16
+  },
+  {
+   "no": 181,
+   "rate": "p1",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮",
+   "col": 51,
+   "row": 20
+  },
+  {
+   "no": 182,
+   "rate": "p1",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮",
+   "col": 50,
+   "row": 20
+  },
+  {
+   "no": 183,
+   "rate": "p1",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮",
+   "col": 49,
+   "row": 20
+  },
+  {
+   "no": 185,
+   "rate": "p1",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮",
+   "col": 48,
+   "row": 20
+  },
+  {
+   "no": 186,
+   "rate": "p1",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮",
+   "col": 47,
+   "row": 20
+  },
+  {
+   "no": 187,
+   "rate": "p1",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮",
+   "col": 46,
+   "row": 20
+  },
+  {
+   "no": 188,
+   "rate": "p1",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮",
+   "col": 45,
+   "row": 20
+  },
+  {
+   "no": 200,
+   "rate": "p1",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮",
+   "col": 44,
+   "row": 20
+  },
+  {
+   "no": 201,
+   "rate": "p1",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮",
+   "col": 43,
+   "row": 20
+  },
+  {
+   "no": 202,
+   "rate": "p1",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮",
+   "col": 42,
+   "row": 20
+  },
+  {
+   "no": 203,
+   "rate": "p1",
+   "name": "P北斗の拳暴凶星SFPA",
+   "col": 41,
+   "row": 20
+  },
+  {
+   "no": 205,
+   "rate": "p1",
+   "name": "P冬のソナタMyMemoryM7",
+   "col": 40,
+   "row": 20
+  },
+  {
+   "no": 206,
+   "rate": "p1",
+   "name": "P天才バカボン7～福神スペック～LTH－JH",
+   "col": 39,
+   "row": 20
+  },
+  {
+   "no": 207,
+   "rate": "p1",
+   "name": "P魔法少女まどか☆マギカ3LM3",
+   "col": 38,
+   "row": 20
+  },
+  {
+   "no": 208,
+   "rate": "p1",
+   "name": "P清流物語4HLC",
+   "col": 37,
+   "row": 20
+  },
+  {
+   "no": 210,
+   "rate": "p1",
+   "name": "P／Re：ゼロから始める異世界生活season2／A10",
+   "col": 36,
+   "row": 20
+  },
+  {
+   "no": 211,
+   "rate": "p1",
+   "name": "P／Re：ゼロから始める異世界生活鬼がかりver／L07",
+   "col": 35,
+   "row": 20
+  },
+  {
+   "no": 212,
+   "rate": "p1",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮F",
+   "col": 34,
+   "row": 20
+  },
+  {
+   "no": 213,
+   "rate": "p1",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮F",
+   "col": 33,
+   "row": 20
+  },
+  {
+   "no": 215,
+   "rate": "p1",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮F",
+   "col": 32,
+   "row": 20
+  },
+  {
+   "no": 216,
+   "rate": "p1",
+   "name": "PA大海物語4スペシャルRBA",
+   "col": 28,
+   "row": 20
+  },
+  {
+   "no": 217,
+   "rate": "p1",
+   "name": "PA大海物語4スペシャルRBA",
+   "col": 27,
+   "row": 20
+  },
+  {
+   "no": 218,
+   "rate": "p1",
+   "name": "PA大海物語4スペシャルRBA",
+   "col": 26,
+   "row": 20
+  },
+  {
+   "no": 220,
+   "rate": "p1",
+   "name": "PA大海物語4スペシャルRBA",
+   "col": 25,
+   "row": 20
+  },
+  {
+   "no": 221,
+   "rate": "p1",
+   "name": "PA大海物語4スペシャルRBA",
+   "col": 24,
+   "row": 20
+  },
+  {
+   "no": 222,
+   "rate": "p1",
+   "name": "PAスーパー海物語IN沖縄6RBD",
+   "col": 23,
+   "row": 20
+  },
+  {
+   "no": 223,
+   "rate": "p1",
+   "name": "PAスーパー海物語IN沖縄6RBD",
+   "col": 22,
+   "row": 20
+  },
+  {
+   "no": 225,
+   "rate": "p1",
+   "name": "PAスーパー海物語IN沖縄6RBD",
+   "col": 21,
+   "row": 20
+  },
+  {
+   "no": 226,
+   "rate": "p1",
+   "name": "PAスーパー海物語IN沖縄6RBD",
+   "col": 20,
+   "row": 20
+  },
+  {
+   "no": 227,
+   "rate": "p1",
+   "name": "PAスーパー海物語IN沖縄6RBD",
+   "col": 19,
+   "row": 20
+  },
+  {
+   "no": 228,
+   "rate": "p1",
+   "name": "PAわんわんセレブレーションAGBD",
+   "col": 18,
+   "row": 20
+  },
+  {
+   "no": 230,
+   "rate": "p1",
+   "name": "PAわんわんセレブレーションAGBD",
+   "col": 17,
+   "row": 20
+  },
+  {
+   "no": 231,
+   "rate": "p1",
+   "name": "PAわんわんセレブレーションAGBD",
+   "col": 16,
+   "row": 20
+  },
+  {
+   "no": 232,
+   "rate": "p1",
+   "name": "PAわんわんセレブレーションAGBD",
+   "col": 15,
+   "row": 20
+  },
+  {
+   "no": 233,
+   "rate": "p1",
+   "name": "PAわんわんセレブレーションAGBD",
+   "col": 14,
+   "row": 20
+  },
+  {
+   "no": 235,
+   "rate": "p1",
+   "name": "PAわんわんセレブレーションAGBD",
+   "col": 13,
+   "row": 20
+  },
+  {
+   "no": 236,
+   "rate": "p1",
+   "name": "PAわんわんセレブレーションAGBD",
+   "col": 12,
+   "row": 20
+  },
+  {
+   "no": 237,
+   "rate": "p1",
+   "name": "PAわんわんセレブレーションAGBD",
+   "col": 11,
+   "row": 20
+  },
+  {
+   "no": 238,
+   "rate": "p1",
+   "name": "PAわんわんセレブレーションAGBD",
+   "col": 10,
+   "row": 20
+  },
+  {
+   "no": 250,
+   "rate": "p1",
+   "name": "PAわんわんセレブレーションAGBD",
+   "col": 9,
+   "row": 20
+  },
+  {
+   "no": 251,
+   "rate": "p1",
+   "name": "P大海物語5MTE2",
+   "col": 9,
+   "row": 21
+  },
+  {
+   "no": 252,
+   "rate": "p1",
+   "name": "P大海物語5MTE2",
+   "col": 10,
+   "row": 21
+  },
+  {
+   "no": 253,
+   "rate": "p1",
+   "name": "P大海物語5MTE2",
+   "col": 11,
+   "row": 21
+  },
+  {
+   "no": 255,
+   "rate": "p1",
+   "name": "P大海物語5MTE2",
+   "col": 12,
+   "row": 21
+  },
+  {
+   "no": 256,
+   "rate": "p1",
+   "name": "P大海物語5MTE2",
+   "col": 13,
+   "row": 21
+  },
+  {
+   "no": 257,
+   "rate": "p1",
+   "name": "P大海物語5MTE2",
+   "col": 14,
+   "row": 21
+  },
+  {
+   "no": 258,
+   "rate": "p1",
+   "name": "P大海物語5MTE2",
+   "col": 15,
+   "row": 21
+  },
+  {
+   "no": 260,
+   "rate": "p1",
+   "name": "P大海物語5MTE2",
+   "col": 16,
+   "row": 21
+  },
+  {
+   "no": 261,
+   "rate": "p1",
+   "name": "P大海物語5MTE2",
+   "col": 17,
+   "row": 21
+  },
+  {
+   "no": 262,
+   "rate": "p1",
+   "name": "P大海物語5MTE2",
+   "col": 18,
+   "row": 21
+  },
+  {
+   "no": 263,
+   "rate": "p1",
+   "name": "P大海物語5MTE2",
+   "col": 19,
+   "row": 21
+  },
+  {
+   "no": 265,
+   "rate": "p1",
+   "name": "P大海物語5MTE2",
+   "col": 20,
+   "row": 21
+  },
+  {
+   "no": 266,
+   "rate": "p1",
+   "name": "P大海物語5MTE2",
+   "col": 21,
+   "row": 21
+  },
+  {
+   "no": 267,
+   "rate": "p1",
+   "name": "P大海物語5MTE2",
+   "col": 22,
+   "row": 21
+  },
+  {
+   "no": 268,
+   "rate": "p1",
+   "name": "P大海物語5MTE2",
+   "col": 23,
+   "row": 21
+  },
+  {
+   "no": 270,
+   "rate": "p1",
+   "name": "P大海物語5MTE2",
+   "col": 24,
+   "row": 21
+  },
+  {
+   "no": 271,
+   "rate": "p1",
+   "name": "P大海物語5MTE2",
+   "col": 25,
+   "row": 21
+  },
+  {
+   "no": 272,
+   "rate": "p1",
+   "name": "P大海物語5MTE2",
+   "col": 26,
+   "row": 21
+  },
+  {
+   "no": 273,
+   "rate": "p1",
+   "name": "P大海物語5MTE2",
+   "col": 27,
+   "row": 21
+  },
+  {
+   "no": 275,
+   "rate": "p1",
+   "name": "P大海物語5MTE2",
+   "col": 28,
+   "row": 21
+  },
+  {
+   "no": 276,
+   "rate": "p4",
+   "name": "P Re：ゼロから始める異世界生活 鬼がかりver． M08",
+   "col": 32,
+   "row": 21
+  },
+  {
+   "no": 277,
+   "rate": "p4",
+   "name": "P Re：ゼロから始める異世界生活 鬼がかりver． M08",
+   "col": 33,
+   "row": 21
+  },
+  {
+   "no": 278,
+   "rate": "p4",
+   "name": "P Re：ゼロから始める異世界生活 鬼がかりver． M08",
+   "col": 34,
+   "row": 21
+  },
+  {
+   "no": 280,
+   "rate": "p4",
+   "name": "P Re：ゼロから始める異世界生活 鬼がかりver． M08",
+   "col": 35,
+   "row": 21
+  },
+  {
+   "no": 281,
+   "rate": "p4",
+   "name": "P Re：ゼロから始める異世界生活 鬼がかりver． M08",
+   "col": 36,
+   "row": 21
+  },
+  {
+   "no": 282,
+   "rate": "p4",
+   "name": "P Re：ゼロから始める異世界生活 鬼がかりver． M08",
+   "col": 37,
+   "row": 21
+  },
+  {
+   "no": 283,
+   "rate": "p4",
+   "name": "P Re：ゼロから始める異世界生活 鬼がかりver． M08",
+   "col": 38,
+   "row": 21
+  },
+  {
+   "no": 285,
+   "rate": "p4",
+   "name": "P Re：ゼロから始める異世界生活 鬼がかりver． M08",
+   "col": 39,
+   "row": 21
+  },
+  {
+   "no": 286,
+   "rate": "p4",
+   "name": "P Re：ゼロから始める異世界生活 鬼がかりver． M08",
+   "col": 40,
+   "row": 21
+  },
+  {
+   "no": 287,
+   "rate": "p4",
+   "name": "P Re：ゼロから始める異世界生活 鬼がかりver． M08",
+   "col": 41,
+   "row": 21
+  },
+  {
+   "no": 288,
+   "rate": "p4",
+   "name": "Pフィーバー彼女、お借りしますLR",
+   "col": 42,
+   "row": 21
+  },
+  {
+   "no": 300,
+   "rate": "p4",
+   "name": "Pゴジラ対エヴァンゲリオン2LV",
+   "col": 43,
+   "row": 21
+  },
+  {
+   "no": 301,
+   "rate": "p4",
+   "name": "Pフィーバー炎炎ノ消防隊G",
+   "col": 44,
+   "row": 21
+  },
+  {
+   "no": 302,
+   "rate": "p4",
+   "name": "Pフィーバー炎炎ノ消防隊G",
+   "col": 45,
+   "row": 21
+  },
+  {
+   "no": 303,
+   "rate": "p4",
+   "name": "P転生したらスライムだった件NB",
+   "col": 46,
+   "row": 21
+  },
+  {
+   "no": 305,
+   "rate": "p4",
+   "name": "P／Re：ゼロから始める異世界生活season2／M04",
+   "col": 47,
+   "row": 21
+  },
+  {
+   "no": 306,
+   "rate": "p4",
+   "name": "Pラブ嬢3H1YZ6",
+   "col": 48,
+   "row": 21
+  },
+  {
+   "no": 307,
+   "rate": "p4",
+   "name": "P貞子FMD",
+   "col": 49,
+   "row": 21
+  },
+  {
+   "no": 308,
+   "rate": "p4",
+   "name": "Pうまい棒2おかわりちょちょちょうだ～いV3",
+   "col": 50,
+   "row": 21
+  },
+  {
+   "no": 310,
+   "rate": "p4",
+   "name": "Pうまい棒2おかわりちょちょちょうだ～いV3",
+   "col": 51,
+   "row": 21
+  },
+  {
+   "no": 311,
+   "rate": "p4",
+   "name": "P牙狼11～冴島大河～XX－MU",
+   "col": 51,
+   "row": 25
+  },
+  {
+   "no": 312,
+   "rate": "p4",
+   "name": "P牙狼11～冴島大河～XX－MU",
+   "col": 50,
+   "row": 25
+  },
+  {
+   "no": 313,
+   "rate": "p4",
+   "name": "P牙狼11～冴島大河～XX－MU",
+   "col": 49,
+   "row": 25
+  },
+  {
+   "no": 315,
+   "rate": "p4",
+   "name": "P／Re：ゼロから始める異世界生活鬼がかりver／L07",
+   "col": 48,
+   "row": 25
+  },
+  {
+   "no": 316,
+   "rate": "p4",
+   "name": "P／Re：ゼロから始める異世界生活鬼がかりver／L07",
+   "col": 47,
+   "row": 25
+  },
+  {
+   "no": 317,
+   "rate": "p4",
+   "name": "P／Re：ゼロから始める異世界生活鬼がかりver／L07",
+   "col": 46,
+   "row": 25
+  },
+  {
+   "no": 318,
+   "rate": "p4",
+   "name": "Pとある魔術の禁書目録2JMZ",
+   "col": 45,
+   "row": 25
+  },
+  {
+   "no": 320,
+   "rate": "p4",
+   "name": "Pとある魔術の禁書目録2JMZ",
+   "col": 44,
+   "row": 25
+  },
+  {
+   "no": 321,
+   "rate": "p4",
+   "name": "P弾球黙示録カイジ沼5V1U",
+   "col": 43,
+   "row": 25
+  },
+  {
+   "no": 322,
+   "rate": "p4",
+   "name": "P弾球黙示録カイジ沼5V1U",
+   "col": 42,
+   "row": 25
+  },
+  {
+   "no": 323,
+   "rate": "p4",
+   "name": "P魔法少女まどか☆マギカ3LM3",
+   "col": 41,
+   "row": 25
+  },
+  {
+   "no": 325,
+   "rate": "p4",
+   "name": "P魔法少女まどか☆マギカ3LM3",
+   "col": 40,
+   "row": 25
+  },
+  {
+   "no": 326,
+   "rate": "p4",
+   "name": "Pにゃんこ大戦争～多様性のネコ～M4",
+   "col": 39,
+   "row": 25
+  },
+  {
+   "no": 327,
+   "rate": "p4",
+   "name": "Pにゃんこ大戦争～多様性のネコ～M4",
+   "col": 38,
+   "row": 25
+  },
+  {
+   "no": 328,
+   "rate": "p4",
+   "name": "P北斗の拳暴凶星SFPA",
+   "col": 37,
+   "row": 25
+  },
+  {
+   "no": 330,
+   "rate": "p4",
+   "name": "P北斗の拳暴凶星SFPA",
+   "col": 36,
+   "row": 25
+  },
+  {
+   "no": 331,
+   "rate": "p4",
+   "name": "P北斗の拳暴凶星SFPA",
+   "col": 35,
+   "row": 25
+  },
+  {
+   "no": 332,
+   "rate": "p4",
+   "name": "P北斗の拳暴凶星SFPA",
+   "col": 34,
+   "row": 25
+  },
+  {
+   "no": 333,
+   "rate": "p4",
+   "name": "P北斗の拳暴凶星SFPA",
+   "col": 33,
+   "row": 25
+  },
+  {
+   "no": 335,
+   "rate": "p4",
+   "name": "P北斗の拳暴凶星SFPA",
+   "col": 32,
+   "row": 25
+  },
+  {
+   "no": 336,
+   "rate": "p1",
+   "name": "Pスーパー海物語IN沖縄6LTP",
+   "col": 28,
+   "row": 25
+  },
+  {
+   "no": 337,
+   "rate": "p1",
+   "name": "Pスーパー海物語IN沖縄6LTP",
+   "col": 27,
+   "row": 25
+  },
+  {
+   "no": 338,
+   "rate": "p1",
+   "name": "Pスーパー海物語IN沖縄6LTP",
+   "col": 26,
+   "row": 25
+  },
+  {
+   "no": 350,
+   "rate": "p1",
+   "name": "Pスーパー海物語IN沖縄6LTP",
+   "col": 25,
+   "row": 25
+  },
+  {
+   "no": 351,
+   "rate": "p1",
+   "name": "Pスーパー海物語IN沖縄6LTP",
+   "col": 24,
+   "row": 25
+  },
+  {
+   "no": 352,
+   "rate": "p1",
+   "name": "P海物語E",
+   "col": 23,
+   "row": 25
+  },
+  {
+   "no": 353,
+   "rate": "p1",
+   "name": "P海物語E",
+   "col": 22,
+   "row": 25
+  },
+  {
+   "no": 355,
+   "rate": "p1",
+   "name": "P海物語E",
+   "col": 21,
+   "row": 25
+  },
+  {
+   "no": 356,
+   "rate": "p1",
+   "name": "P海物語極ジャパンHTH",
+   "col": 20,
+   "row": 25
+  },
+  {
+   "no": 357,
+   "rate": "p1",
+   "name": "P海物語極ジャパンHTH",
+   "col": 19,
+   "row": 25
+  },
+  {
+   "no": 358,
+   "rate": "p1",
+   "name": "P海物語極ジャパンHTH",
+   "col": 18,
+   "row": 25
+  },
+  {
+   "no": 360,
+   "rate": "p1",
+   "name": "P海物語極ジャパンHTH",
+   "col": 17,
+   "row": 25
+  },
+  {
+   "no": 361,
+   "rate": "p1",
+   "name": "P大海物語4スペシャルSCA",
+   "col": 16,
+   "row": 25
+  },
+  {
+   "no": 362,
+   "rate": "p1",
+   "name": "P大海物語4スペシャルSCA",
+   "col": 15,
+   "row": 25
+  },
+  {
+   "no": 363,
+   "rate": "p1",
+   "name": "P大海物語4スペシャルSCA",
+   "col": 14,
+   "row": 25
+  },
+  {
+   "no": 365,
+   "rate": "p1",
+   "name": "P大海物語5HCL",
+   "col": 13,
+   "row": 25
+  },
+  {
+   "no": 366,
+   "rate": "p1",
+   "name": "P大海物語5HCL",
+   "col": 12,
+   "row": 25
+  },
+  {
+   "no": 367,
+   "rate": "p1",
+   "name": "P大海物語5HCL",
+   "col": 11,
+   "row": 25
+  },
+  {
+   "no": 368,
+   "rate": "p1",
+   "name": "P大海物語5HCL",
+   "col": 10,
+   "row": 25
+  },
+  {
+   "no": 370,
+   "rate": "p1",
+   "name": "P大海物語5HCL",
+   "col": 9,
+   "row": 25
+  },
+  {
+   "no": 371,
+   "rate": "p4",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮",
+   "col": 9,
+   "row": 26
+  },
+  {
+   "no": 372,
+   "rate": "p4",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮",
+   "col": 10,
+   "row": 26
+  },
+  {
+   "no": 373,
+   "rate": "p4",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮",
+   "col": 11,
+   "row": 26
+  },
+  {
+   "no": 375,
+   "rate": "p4",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮",
+   "col": 12,
+   "row": 26
+  },
+  {
+   "no": 376,
+   "rate": "p4",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮",
+   "col": 13,
+   "row": 26
+  },
+  {
+   "no": 377,
+   "rate": "p4",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮",
+   "col": 14,
+   "row": 26
+  },
+  {
+   "no": 378,
+   "rate": "p4",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮",
+   "col": 15,
+   "row": 26
+  },
+  {
+   "no": 380,
+   "rate": "p4",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮",
+   "col": 16,
+   "row": 26
+  },
+  {
+   "no": 381,
+   "rate": "p4",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮",
+   "col": 17,
+   "row": 26
+  },
+  {
+   "no": 382,
+   "rate": "p4",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮",
+   "col": 18,
+   "row": 26
+  },
+  {
+   "no": 383,
+   "rate": "p4",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮",
+   "col": 19,
+   "row": 26
+  },
+  {
+   "no": 385,
+   "rate": "p4",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮",
+   "col": 20,
+   "row": 26
+  },
+  {
+   "no": 386,
+   "rate": "p4",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮",
+   "col": 21,
+   "row": 26
+  },
+  {
+   "no": 387,
+   "rate": "p4",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮",
+   "col": 22,
+   "row": 26
+  },
+  {
+   "no": 388,
+   "rate": "p4",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮",
+   "col": 23,
+   "row": 26
+  },
+  {
+   "no": 500,
+   "rate": "p4",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮",
+   "col": 24,
+   "row": 26
+  },
+  {
+   "no": 501,
+   "rate": "p4",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮",
+   "col": 25,
+   "row": 26
+  },
+  {
+   "no": 502,
+   "rate": "p4",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮",
+   "col": 26,
+   "row": 26
+  },
+  {
+   "no": 503,
+   "rate": "p4",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮",
+   "col": 27,
+   "row": 26
+  },
+  {
+   "no": 505,
+   "rate": "p4",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮",
+   "col": 28,
+   "row": 26
+  },
+  {
+   "no": 506,
+   "rate": "p4",
+   "name": "P大海物語5スペシャルALTA",
+   "col": 32,
+   "row": 26
+  },
+  {
+   "no": 507,
+   "rate": "p4",
+   "name": "P大海物語5スペシャルALTA",
+   "col": 33,
+   "row": 26
+  },
+  {
+   "no": 508,
+   "rate": "p4",
+   "name": "P大海物語5スペシャルALTA",
+   "col": 34,
+   "row": 26
+  },
+  {
+   "no": 510,
+   "rate": "p4",
+   "name": "P大海物語5スペシャルALTA",
+   "col": 35,
+   "row": 26
+  },
+  {
+   "no": 511,
+   "rate": "p4",
+   "name": "P大海物語5スペシャルALTA",
+   "col": 36,
+   "row": 26
+  },
+  {
+   "no": 512,
+   "rate": "p4",
+   "name": "P大海物語5スペシャルALTA",
+   "col": 37,
+   "row": 26
+  },
+  {
+   "no": 513,
+   "rate": "p4",
+   "name": "P大海物語5スペシャルALTA",
+   "col": 38,
+   "row": 26
+  },
+  {
+   "no": 515,
+   "rate": "p4",
+   "name": "P大海物語5スペシャルALTA",
+   "col": 39,
+   "row": 26
+  },
+  {
+   "no": 516,
+   "rate": "p4",
+   "name": "P大海物語5スペシャルALTA",
+   "col": 40,
+   "row": 26
+  },
+  {
+   "no": 517,
+   "rate": "p4",
+   "name": "P大海物語5スペシャルALTA",
+   "col": 41,
+   "row": 26
+  },
+  {
+   "no": 518,
+   "rate": "p4",
+   "name": "Pスーパー海物語IN沖縄6LTP",
+   "col": 42,
+   "row": 26
+  },
+  {
+   "no": 520,
+   "rate": "p4",
+   "name": "Pスーパー海物語IN沖縄6LTP",
+   "col": 43,
+   "row": 26
+  },
+  {
+   "no": 521,
+   "rate": "p4",
+   "name": "Pスーパー海物語IN沖縄6LTP",
+   "col": 44,
+   "row": 26
+  },
+  {
+   "no": 522,
+   "rate": "p4",
+   "name": "Pスーパー海物語IN沖縄6LTP",
+   "col": 45,
+   "row": 26
+  },
+  {
+   "no": 523,
+   "rate": "p4",
+   "name": "P大海物語4スペシャルSCA",
+   "col": 46,
+   "row": 26
+  },
+  {
+   "no": 525,
+   "rate": "p4",
+   "name": "P大海物語4スペシャルSCA",
+   "col": 47,
+   "row": 26
+  },
+  {
+   "no": 526,
+   "rate": "p4",
+   "name": "P大海物語4スペシャルSCA",
+   "col": 48,
+   "row": 26
+  },
+  {
+   "no": 527,
+   "rate": "p4",
+   "name": "P大海物語4スペシャルSCA",
+   "col": 49,
+   "row": 26
+  },
+  {
+   "no": 528,
+   "rate": "p4",
+   "name": "P大海物語4スペシャルSCA",
+   "col": 50,
+   "row": 26
+  },
+  {
+   "no": 530,
+   "rate": "p4",
+   "name": "P大海物語4スペシャルSCA",
+   "col": 51,
+   "row": 26
+  },
+  {
+   "no": 531,
+   "rate": "p4",
+   "name": "P大海物語5HCL",
+   "col": 51,
+   "row": 30
+  },
+  {
+   "no": 532,
+   "rate": "p4",
+   "name": "P大海物語5HCL",
+   "col": 50,
+   "row": 30
+  },
+  {
+   "no": 533,
+   "rate": "p4",
+   "name": "P大海物語5HCL",
+   "col": 49,
+   "row": 30
+  },
+  {
+   "no": 535,
+   "rate": "p4",
+   "name": "P大海物語5HCL",
+   "col": 48,
+   "row": 30
+  },
+  {
+   "no": 536,
+   "rate": "p4",
+   "name": "P大海物語5HCL",
+   "col": 47,
+   "row": 30
+  },
+  {
+   "no": 537,
+   "rate": "p4",
+   "name": "P大海物語5HCL",
+   "col": 46,
+   "row": 30
+  },
+  {
+   "no": 538,
+   "rate": "p4",
+   "name": "P大海物語5HCL",
+   "col": 45,
+   "row": 30
+  },
+  {
+   "no": 550,
+   "rate": "p4",
+   "name": "P大海物語5HCL",
+   "col": 44,
+   "row": 30
+  },
+  {
+   "no": 551,
+   "rate": "p4",
+   "name": "P大海物語5HCL",
+   "col": 43,
+   "row": 30
+  },
+  {
+   "no": 552,
+   "rate": "p4",
+   "name": "P大海物語5HCL",
+   "col": 42,
+   "row": 30
+  },
+  {
+   "no": 553,
+   "rate": "p4",
+   "name": "P大海物語5MTE2",
+   "col": 41,
+   "row": 30
+  },
+  {
+   "no": 555,
+   "rate": "p4",
+   "name": "P大海物語5MTE2",
+   "col": 40,
+   "row": 30
+  },
+  {
+   "no": 556,
+   "rate": "p4",
+   "name": "P大海物語5MTE2",
+   "col": 39,
+   "row": 30
+  },
+  {
+   "no": 557,
+   "rate": "p4",
+   "name": "P大海物語5MTE2",
+   "col": 38,
+   "row": 30
+  },
+  {
+   "no": 558,
+   "rate": "p4",
+   "name": "P大海物語5MTE2",
+   "col": 37,
+   "row": 30
+  },
+  {
+   "no": 560,
+   "rate": "p4",
+   "name": "P大海物語5MTE2",
+   "col": 36,
+   "row": 30
+  },
+  {
+   "no": 561,
+   "rate": "p4",
+   "name": "P大海物語5MTE2",
+   "col": 35,
+   "row": 30
+  },
+  {
+   "no": 562,
+   "rate": "p4",
+   "name": "P大海物語5MTE2",
+   "col": 34,
+   "row": 30
+  },
+  {
+   "no": 563,
+   "rate": "p4",
+   "name": "P大海物語5MTE2",
+   "col": 33,
+   "row": 30
+  },
+  {
+   "no": 565,
+   "rate": "p4",
+   "name": "P大海物語5MTE2",
+   "col": 32,
+   "row": 30
+  },
+  {
+   "no": 566,
+   "rate": "p4",
+   "name": "e Re：ゼロから始める異世界生活 season2M13",
+   "col": 28,
+   "row": 30
+  },
+  {
+   "no": 567,
+   "rate": "p4",
+   "name": "e Re：ゼロから始める異世界生活 season2M13",
+   "col": 27,
+   "row": 30
+  },
+  {
+   "no": 568,
+   "rate": "p4",
+   "name": "e Re：ゼロから始める異世界生活 season2M13",
+   "col": 26,
+   "row": 30
+  },
+  {
+   "no": 570,
+   "rate": "p4",
+   "name": "e Re：ゼロから始める異世界生活 season2M13",
+   "col": 25,
+   "row": 30
+  },
+  {
+   "no": 571,
+   "rate": "p4",
+   "name": "e Re：ゼロから始める異世界生活 season2M13",
+   "col": 24,
+   "row": 30
+  },
+  {
+   "no": 572,
+   "rate": "p4",
+   "name": "e Re：ゼロから始める異世界生活 season2M13",
+   "col": 23,
+   "row": 30
+  },
+  {
+   "no": 573,
+   "rate": "p4",
+   "name": "eギンパラVIVAFESTAHTA2",
+   "col": 22,
+   "row": 30
+  },
+  {
+   "no": 575,
+   "rate": "p4",
+   "name": "eギンパラVIVAFESTAHTA2",
+   "col": 21,
+   "row": 30
+  },
+  {
+   "no": 576,
+   "rate": "p4",
+   "name": "eギンパラVIVAFESTAHTA2",
+   "col": 20,
+   "row": 30
+  },
+  {
+   "no": 577,
+   "rate": "p4",
+   "name": "eギンパラVIVAFESTAHTA2",
+   "col": 19,
+   "row": 30
+  },
+  {
+   "no": 578,
+   "rate": "p4",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮",
+   "col": 18,
+   "row": 30
+  },
+  {
+   "no": 580,
+   "rate": "p4",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮",
+   "col": 17,
+   "row": 30
+  },
+  {
+   "no": 581,
+   "rate": "p4",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮",
+   "col": 16,
+   "row": 30
+  },
+  {
+   "no": 582,
+   "rate": "p4",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮",
+   "col": 15,
+   "row": 30
+  },
+  {
+   "no": 583,
+   "rate": "p4",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮",
+   "col": 14,
+   "row": 30
+  },
+  {
+   "no": 585,
+   "rate": "p4",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮",
+   "col": 13,
+   "row": 30
+  },
+  {
+   "no": 586,
+   "rate": "p4",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮",
+   "col": 12,
+   "row": 30
+  },
+  {
+   "no": 587,
+   "rate": "p4",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮",
+   "col": 11,
+   "row": 30
+  },
+  {
+   "no": 588,
+   "rate": "p4",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮",
+   "col": 10,
+   "row": 30
+  },
+  {
+   "no": 600,
+   "rate": "p4",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮",
+   "col": 9,
+   "row": 30
+  },
+  {
+   "no": 601,
+   "rate": "p4",
+   "name": "e／吉宗極乗3000ver／L06",
+   "col": 9,
+   "row": 31
+  },
+  {
+   "no": 602,
+   "rate": "p4",
+   "name": "e／吉宗極乗3000ver／L06",
+   "col": 10,
+   "row": 31
+  },
+  {
+   "no": 603,
+   "rate": "p4",
+   "name": "e／ワールドダイスター／L04",
+   "col": 11,
+   "row": 31
+  },
+  {
+   "no": 605,
+   "rate": "p4",
+   "name": "e／ワールドダイスター／L04",
+   "col": 12,
+   "row": 31
+  },
+  {
+   "no": 606,
+   "rate": "p4",
+   "name": "eハイスクールオブザデッド3V1A",
+   "col": 13,
+   "row": 31
+  },
+  {
+   "no": 607,
+   "rate": "p4",
+   "name": "eソードアート・オンライン～閃光の軌跡～K7",
+   "col": 14,
+   "row": 31
+  },
+  {
+   "no": 608,
+   "rate": "p4",
+   "name": "eソードアート・オンライン～閃光の軌跡～K7",
+   "col": 15,
+   "row": 31
+  },
+  {
+   "no": 610,
+   "rate": "p4",
+   "name": "e／押忍番長漢の頂／L09",
+   "col": 16,
+   "row": 31
+  },
+  {
+   "no": 611,
+   "rate": "p4",
+   "name": "e／押忍番長漢の頂／L09",
+   "col": 17,
+   "row": 31
+  },
+  {
+   "no": 612,
+   "rate": "p4",
+   "name": "e／押忍番長漢の頂／L09",
+   "col": 18,
+   "row": 31
+  },
+  {
+   "no": 613,
+   "rate": "p4",
+   "name": "e女神のカフェテラスJLZ",
+   "col": 19,
+   "row": 31
+  },
+  {
+   "no": 615,
+   "rate": "p4",
+   "name": "e女神のカフェテラスJLZ",
+   "col": 20,
+   "row": 31
+  },
+  {
+   "no": 616,
+   "rate": "p4",
+   "name": "e女神のカフェテラスJLZ",
+   "col": 21,
+   "row": 31
+  },
+  {
+   "no": 617,
+   "rate": "p4",
+   "name": "eようこそ実力至上主義の教室へMA",
+   "col": 22,
+   "row": 31
+  },
+  {
+   "no": 618,
+   "rate": "p4",
+   "name": "eようこそ実力至上主義の教室へMA",
+   "col": 23,
+   "row": 31
+  },
+  {
+   "no": 620,
+   "rate": "p4",
+   "name": "eフィーバー機動戦士ガンダムユニコーン2 R",
+   "col": 24,
+   "row": 31
+  },
+  {
+   "no": 621,
+   "rate": "p4",
+   "name": "e真北斗無双5SFEE",
+   "col": 25,
+   "row": 31
+  },
+  {
+   "no": 622,
+   "rate": "p4",
+   "name": "e真北斗無双5SFEE",
+   "col": 26,
+   "row": 31
+  },
+  {
+   "no": 623,
+   "rate": "p4",
+   "name": "e真北斗無双5SFEE",
+   "col": 27,
+   "row": 31
+  },
+  {
+   "no": 625,
+   "rate": "p4",
+   "name": "e真北斗無双5SFEE",
+   "col": 28,
+   "row": 31
+  },
+  {
+   "no": 626,
+   "rate": "p4",
+   "name": "e必殺仕事人ⅥM2",
+   "col": 32,
+   "row": 31
+  },
+  {
+   "no": 627,
+   "rate": "p4",
+   "name": "e必殺仕事人ⅥM2",
+   "col": 33,
+   "row": 31
+  },
+  {
+   "no": 628,
+   "rate": "p4",
+   "name": "e必殺仕事人ⅥM2",
+   "col": 34,
+   "row": 31
+  },
+  {
+   "no": 630,
+   "rate": "p4",
+   "name": "eひきこまり吸血姫の悶々FHV",
+   "col": 35,
+   "row": 31
+  },
+  {
+   "no": 631,
+   "rate": "p4",
+   "name": "eバイオハザード6APN",
+   "col": 36,
+   "row": 31
+  },
+  {
+   "no": 632,
+   "rate": "p4",
+   "name": "eバイオハザード6APN",
+   "col": 37,
+   "row": 31
+  },
+  {
+   "no": 633,
+   "rate": "p4",
+   "name": "e／ガンゲイル・オンライン／M08",
+   "col": 38,
+   "row": 31
+  },
+  {
+   "no": 635,
+   "rate": "p4",
+   "name": "e／ガンゲイル・オンライン／M08",
+   "col": 39,
+   "row": 31
+  },
+  {
+   "no": 636,
+   "rate": "p4",
+   "name": "e魔法少女まどか☆マギカ3LPM1",
+   "col": 40,
+   "row": 31
+  },
+  {
+   "no": 637,
+   "rate": "p4",
+   "name": "e魔法少女まどか☆マギカ3LPM1",
+   "col": 41,
+   "row": 31
+  },
+  {
+   "no": 638,
+   "rate": "p4",
+   "name": "eフィーバーからくりサーカス2R",
+   "col": 42,
+   "row": 31
+  },
+  {
+   "no": 650,
+   "rate": "p4",
+   "name": "eフィーバーからくりサーカス2R",
+   "col": 43,
+   "row": 31
+  },
+  {
+   "no": 651,
+   "rate": "p4",
+   "name": "eフィーバーからくりサーカス2R",
+   "col": 44,
+   "row": 31
+  },
+  {
+   "no": 652,
+   "rate": "p4",
+   "name": "eフィーバーからくりサーカス2R",
+   "col": 45,
+   "row": 31
+  },
+  {
+   "no": 653,
+   "rate": "p4",
+   "name": "eフィーバーブルーロックMZ",
+   "col": 46,
+   "row": 31
+  },
+  {
+   "no": 655,
+   "rate": "p4",
+   "name": "eフィーバーブルーロックMZ",
+   "col": 47,
+   "row": 31
+  },
+  {
+   "no": 656,
+   "rate": "p4",
+   "name": "eフィーバーブルーロックMZ",
+   "col": 48,
+   "row": 31
+  },
+  {
+   "no": 657,
+   "rate": "p4",
+   "name": "eフィーバー炎炎ノ消防隊2MS",
+   "col": 49,
+   "row": 31
+  },
+  {
+   "no": 658,
+   "rate": "p4",
+   "name": "eフィーバー炎炎ノ消防隊2MS",
+   "col": 50,
+   "row": 31
+  },
+  {
+   "no": 660,
+   "rate": "p4",
+   "name": "eフィーバー炎炎ノ消防隊2MS",
+   "col": 51,
+   "row": 31
+  },
+  {
+   "no": 661,
+   "rate": "p4",
+   "name": "e北斗の拳11暴凶星SHEF",
+   "col": 51,
+   "row": 35
+  },
+  {
+   "no": 662,
+   "rate": "p4",
+   "name": "e北斗の拳11暴凶星SHEF",
+   "col": 50,
+   "row": 35
+  },
+  {
+   "no": 663,
+   "rate": "p4",
+   "name": "e北斗の拳11暴凶星SHEF",
+   "col": 49,
+   "row": 35
+  },
+  {
+   "no": 665,
+   "rate": "p4",
+   "name": "e北斗の拳11暴凶星SHEF",
+   "col": 48,
+   "row": 35
+  },
+  {
+   "no": 666,
+   "rate": "p4",
+   "name": "e北斗の拳11暴凶星SHEF",
+   "col": 47,
+   "row": 35
+  },
+  {
+   "no": 667,
+   "rate": "p4",
+   "name": "e北斗の拳11暴凶星SHEF",
+   "col": 46,
+   "row": 35
+  },
+  {
+   "no": 668,
+   "rate": "p4",
+   "name": "e北斗の拳11暴凶星SHEF",
+   "col": 45,
+   "row": 35
+  },
+  {
+   "no": 670,
+   "rate": "p4",
+   "name": "e北斗の拳11暴凶星SHEF",
+   "col": 44,
+   "row": 35
+  },
+  {
+   "no": 671,
+   "rate": "p4",
+   "name": "e花の慶次～黄金の一撃H4",
+   "col": 43,
+   "row": 35
+  },
+  {
+   "no": 672,
+   "rate": "p4",
+   "name": "e花の慶次～黄金の一撃H4",
+   "col": 42,
+   "row": 35
+  },
+  {
+   "no": 673,
+   "rate": "p4",
+   "name": "e東京リベンジャーズGFEC",
+   "col": 41,
+   "row": 35
+  },
+  {
+   "no": 675,
+   "rate": "p4",
+   "name": "e東京リベンジャーズGFEC",
+   "col": 40,
+   "row": 35
+  },
+  {
+   "no": 676,
+   "rate": "p4",
+   "name": "e東京リベンジャーズGFEC",
+   "col": 39,
+   "row": 35
+  },
+  {
+   "no": 677,
+   "rate": "p4",
+   "name": "e東京リベンジャーズGFEC",
+   "col": 38,
+   "row": 35
+  },
+  {
+   "no": 678,
+   "rate": "p4",
+   "name": "e東京リベンジャーズGFEC",
+   "col": 37,
+   "row": 35
+  },
+  {
+   "no": 680,
+   "rate": "p4",
+   "name": "eリコリス・リコイルM3",
+   "col": 36,
+   "row": 35
+  },
+  {
+   "no": 681,
+   "rate": "p4",
+   "name": "eリコリス・リコイルM3",
+   "col": 35,
+   "row": 35
+  },
+  {
+   "no": 682,
+   "rate": "p4",
+   "name": "eリコリス・リコイルM3",
+   "col": 34,
+   "row": 35
+  },
+  {
+   "no": 683,
+   "rate": "p4",
+   "name": "eリコリス・リコイルM3",
+   "col": 33,
+   "row": 35
+  },
+  {
+   "no": 685,
+   "rate": "p4",
+   "name": "eリコリス・リコイルM3",
+   "col": 32,
+   "row": 35
+  },
+  {
+   "no": 686,
+   "rate": "p4",
+   "name": "e牙狼トリプルバーストRF",
+   "col": 28,
+   "row": 35
+  },
+  {
+   "no": 687,
+   "rate": "p4",
+   "name": "e牙狼トリプルバーストRF",
+   "col": 27,
+   "row": 35
+  },
+  {
+   "no": 688,
+   "rate": "p4",
+   "name": "eフィーバー彼女、お借りしますH",
+   "col": 26,
+   "row": 35
+  },
+  {
+   "no": 700,
+   "rate": "p4",
+   "name": "eとある魔術の禁書目録 一方通行 BIG JKZ",
+   "col": 25,
+   "row": 35
+  },
+  {
+   "no": 701,
+   "rate": "p4",
+   "name": "eゴジラ対エヴァンゲリオン2TR",
+   "col": 24,
+   "row": 35
+  },
+  {
+   "no": 702,
+   "rate": "p4",
+   "name": "e真・一騎当千～軍神覚醒～AM－TS",
+   "col": 23,
+   "row": 35
+  },
+  {
+   "no": 703,
+   "rate": "p4",
+   "name": "eいせれべFSZ",
+   "col": 22,
+   "row": 35
+  },
+  {
+   "no": 705,
+   "rate": "p4",
+   "name": "eいせれべFSZ",
+   "col": 21,
+   "row": 35
+  },
+  {
+   "no": 706,
+   "rate": "p4",
+   "name": "eグリッドマンBDN",
+   "col": 20,
+   "row": 35
+  },
+  {
+   "no": 707,
+   "rate": "p4",
+   "name": "e地獄少女7500Ver．RHZ",
+   "col": 19,
+   "row": 35
+  },
+  {
+   "no": 708,
+   "rate": "p4",
+   "name": "e東京リベンジャーズ聖夜決戦編EREC",
+   "col": 18,
+   "row": 35
+  },
+  {
+   "no": 710,
+   "rate": "p4",
+   "name": "e東京リベンジャーズ聖夜決戦編EREC",
+   "col": 17,
+   "row": 35
+  },
+  {
+   "no": 711,
+   "rate": "p4",
+   "name": "e化物語2GSED",
+   "col": 16,
+   "row": 35
+  },
+  {
+   "no": 712,
+   "rate": "p4",
+   "name": "eエイティシックスMAM2",
+   "col": 15,
+   "row": 35
+  },
+  {
+   "no": 713,
+   "rate": "p4",
+   "name": "eメイヒテンセイCMP",
+   "col": 14,
+   "row": 35
+  },
+  {
+   "no": 715,
+   "rate": "p4",
+   "name": "eフィーバーもののがたりF",
+   "col": 13,
+   "row": 35
+  },
+  {
+   "no": 716,
+   "rate": "p4",
+   "name": "eフィーバーもののがたりF",
+   "col": 12,
+   "row": 35
+  },
+  {
+   "no": 717,
+   "rate": "p4",
+   "name": "eフィーバーもののがたりF",
+   "col": 11,
+   "row": 35
+  },
+  {
+   "no": 718,
+   "rate": "p4",
+   "name": "eとある科学の超電磁砲 LTRSY",
+   "col": 10,
+   "row": 35
+  },
+  {
+   "no": 720,
+   "rate": "p4",
+   "name": "eとある科学の超電磁砲 LTRSY",
+   "col": 9,
+   "row": 35
+  },
+  {
+   "no": 721,
+   "rate": "p4",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮F",
+   "col": 9,
+   "row": 36
+  },
+  {
+   "no": 722,
+   "rate": "p4",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮Y",
+   "col": 10,
+   "row": 36
+  },
+  {
+   "no": 723,
+   "rate": "p4",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮Y",
+   "col": 11,
+   "row": 36
+  },
+  {
+   "no": 725,
+   "rate": "p4",
+   "name": "P新世紀エヴァンゲリオン15 未来への咆哮Y",
+   "col": 12,
+   "row": 36
+  },
+  {
+   "no": 726,
+   "rate": "p4",
+   "name": "Pシン・エヴァンゲリオンMV",
+   "col": 13,
+   "row": 36
+  },
+  {
+   "no": 727,
+   "rate": "p4",
+   "name": "Pシン・エヴァンゲリオンMV",
+   "col": 14,
+   "row": 36
+  },
+  {
+   "no": 728,
+   "rate": "p4",
+   "name": "Pリング 呪いの7日間3 LT搭載 JSG",
+   "col": 15,
+   "row": 36
+  },
+  {
+   "no": 730,
+   "rate": "p4",
+   "name": "Pリング 呪いの7日間3 LT搭載 JSG",
+   "col": 16,
+   "row": 36
+  },
+  {
+   "no": 731,
+   "rate": "p4",
+   "name": "Pフィーバー戦姫絶唱シンフォギア4Z",
+   "col": 17,
+   "row": 36
+  },
+  {
+   "no": 732,
+   "rate": "p4",
+   "name": "P宇宙戦艦ヤマト2202－3MF",
+   "col": 18,
+   "row": 36
+  },
+  {
+   "no": 733,
+   "rate": "p4",
+   "name": "P大工の源さん超韋駄天2HLB",
+   "col": 19,
+   "row": 36
+  },
+  {
+   "no": 735,
+   "rate": "p4",
+   "name": "PToLOVEるダークネスL9YZ4",
+   "col": 20,
+   "row": 36
+  },
+  {
+   "no": 736,
+   "rate": "p4",
+   "name": "PデビルマンLM3",
+   "col": 21,
+   "row": 36
+  },
+  {
+   "no": 737,
+   "rate": "p4",
+   "name": "P清流物語4HLC",
+   "col": 22,
+   "row": 36
+  },
+  {
+   "no": 738,
+   "rate": "p4",
+   "name": "P真・一騎当千～桃園の誓い～LTH－FH",
+   "col": 23,
+   "row": 36
+  },
+  {
+   "no": 750,
+   "rate": "p4",
+   "name": "P／Re：ゼロから始める異世界生活season2／A10",
+   "col": 24,
+   "row": 36
+  },
+  {
+   "no": 751,
+   "rate": "p4",
+   "name": "P／Re：ゼロから始める異世界生活season2／A10",
+   "col": 25,
+   "row": 36
+  },
+  {
+   "no": 752,
+   "rate": "p4",
+   "name": "P遊moreLTエガブレイブAX4",
+   "col": 26,
+   "row": 36
+  },
+  {
+   "no": 753,
+   "rate": "p4",
+   "name": "P遊moreLTエガブレイブAX4",
+   "col": 27,
+   "row": 36
+  },
+  {
+   "no": 755,
+   "rate": "p4",
+   "name": "P遊moreLTエガブレイブAX4",
+   "col": 28,
+   "row": 36
+  },
+  {
+   "no": 756,
+   "rate": "p4",
+   "name": "e無職転生～異世界行ったら本気だす～H2E",
+   "col": 32,
+   "row": 36
+  },
+  {
+   "no": 757,
+   "rate": "p4",
+   "name": "e無職転生～異世界行ったら本気だす～H2E",
+   "col": 33,
+   "row": 36
+  },
+  {
+   "no": 758,
+   "rate": "p4",
+   "name": "e無職転生～異世界行ったら本気だす～H2E",
+   "col": 34,
+   "row": 36
+  },
+  {
+   "no": 760,
+   "rate": "p4",
+   "name": "e無職転生～異世界行ったら本気だす～H2E",
+   "col": 35,
+   "row": 36
+  },
+  {
+   "no": 761,
+   "rate": "p4",
+   "name": "e無職転生～異世界行ったら本気だす～H2E",
+   "col": 36,
+   "row": 36
+  },
+  {
+   "no": 762,
+   "rate": "p4",
+   "name": "e無職転生～異世界行ったら本気だす～H2E",
+   "col": 37,
+   "row": 36
+  },
+  {
+   "no": 763,
+   "rate": "p4",
+   "name": "e無職転生～異世界行ったら本気だす～H2E",
+   "col": 38,
+   "row": 36
+  },
+  {
+   "no": 765,
+   "rate": "p4",
+   "name": "e無職転生～異世界行ったら本気だす～H2E",
+   "col": 39,
+   "row": 36
+  },
+  {
+   "no": 766,
+   "rate": "p4",
+   "name": "e無職転生～異世界行ったら本気だす～H2E",
+   "col": 40,
+   "row": 36
+  },
+  {
+   "no": 767,
+   "rate": "p4",
+   "name": "e無職転生～異世界行ったら本気だす～H2E",
+   "col": 41,
+   "row": 36
+  },
+  {
+   "no": 768,
+   "rate": "p4",
+   "name": "ｅフィーバーキン肉マン",
+   "col": 42,
+   "row": 36
+  },
+  {
+   "no": 770,
+   "rate": "p4",
+   "name": "ｅフィーバーキン肉マン",
+   "col": 43,
+   "row": 36
+  },
+  {
+   "no": 771,
+   "rate": "p4",
+   "name": "ｅフィーバーキン肉マン",
+   "col": 44,
+   "row": 36
+  },
+  {
+   "no": 772,
+   "rate": "p4",
+   "name": "ｅフィーバーキン肉マン",
+   "col": 45,
+   "row": 36
+  },
+  {
+   "no": 773,
+   "rate": "p4",
+   "name": "ｅフィーバーキン肉マン",
+   "col": 46,
+   "row": 36
+  },
+  {
+   "no": 775,
+   "rate": "p4",
+   "name": "ｅフィーバーキン肉マン",
+   "col": 47,
+   "row": 36
+  },
+  {
+   "no": 776,
+   "rate": "p4",
+   "name": "ｅフィーバーキン肉マン",
+   "col": 48,
+   "row": 36
+  },
+  {
+   "no": 777,
+   "rate": "p4",
+   "name": "ｅフィーバーキン肉マン",
+   "col": 49,
+   "row": 36
+  },
+  {
+   "no": 778,
+   "rate": "p4",
+   "name": "ｅフィーバーキン肉マン",
+   "col": 50,
+   "row": 36
+  },
+  {
+   "no": 780,
+   "rate": "p4",
+   "name": "ｅフィーバーキン肉マン",
+   "col": 51,
+   "row": 36
+  },
+  {
+   "no": 781,
+   "rate": "p4",
+   "name": "eカケグルイ～生か死か～LTT－KR",
+   "col": 51,
+   "row": 40
+  },
+  {
+   "no": 782,
+   "rate": "p4",
+   "name": "eカケグルイ～生か死か～LTT－KR",
+   "col": 50,
+   "row": 40
+  },
+  {
+   "no": 783,
+   "rate": "p4",
+   "name": "eカケグルイ～生か死か～LTT－KR",
+   "col": 49,
+   "row": 40
+  },
+  {
+   "no": 785,
+   "rate": "p4",
+   "name": "eカケグルイ～生か死か～LTT－KR",
+   "col": 48,
+   "row": 40
+  },
+  {
+   "no": 786,
+   "rate": "p4",
+   "name": "eカケグルイ～生か死か～LTT－KR",
+   "col": 47,
+   "row": 40
+  },
+  {
+   "no": 787,
+   "rate": "p4",
+   "name": "e東京喰種MW",
+   "col": 46,
+   "row": 40
+  },
+  {
+   "no": 788,
+   "rate": "p4",
+   "name": "e東京喰種MW",
+   "col": 45,
+   "row": 40
+  },
+  {
+   "no": 800,
+   "rate": "p4",
+   "name": "e東京喰種MW",
+   "col": 44,
+   "row": 40
+  },
+  {
+   "no": 801,
+   "rate": "p4",
+   "name": "e東京喰種MW",
+   "col": 43,
+   "row": 40
+  },
+  {
+   "no": 802,
+   "rate": "p4",
+   "name": "e東京喰種MW",
+   "col": 42,
+   "row": 40
+  },
+  {
+   "no": 803,
+   "rate": "p4",
+   "name": "e牙狼12XX－MJ",
+   "col": 41,
+   "row": 40
+  },
+  {
+   "no": 805,
+   "rate": "p4",
+   "name": "e牙狼12XX－MJ",
+   "col": 40,
+   "row": 40
+  },
+  {
+   "no": 806,
+   "rate": "p4",
+   "name": "e牙狼12XX－MJ",
+   "col": 39,
+   "row": 40
+  },
+  {
+   "no": 807,
+   "rate": "p4",
+   "name": "e牙狼12XX－MJ",
+   "col": 38,
+   "row": 40
+  },
+  {
+   "no": 808,
+   "rate": "p4",
+   "name": "e牙狼12XX－MJ",
+   "col": 37,
+   "row": 40
+  },
+  {
+   "no": 810,
+   "rate": "p4",
+   "name": "e牙狼12XX－MJ",
+   "col": 36,
+   "row": 40
+  },
+  {
+   "no": 811,
+   "rate": "p4",
+   "name": "e牙狼12XX－MJ",
+   "col": 35,
+   "row": 40
+  },
+  {
+   "no": 812,
+   "rate": "p4",
+   "name": "e牙狼12XX－MJ",
+   "col": 34,
+   "row": 40
+  },
+  {
+   "no": 813,
+   "rate": "p4",
+   "name": "e牙狼12XX－MJ",
+   "col": 33,
+   "row": 40
+  },
+  {
+   "no": 815,
+   "rate": "p4",
+   "name": "e牙狼12XX－MJ",
+   "col": 32,
+   "row": 40
+  },
+  {
+   "no": 816,
+   "rate": "p4",
+   "name": "PハネモノファミリースタジアムMD",
+   "col": 28,
+   "row": 40
+  },
+  {
+   "no": 817,
+   "rate": "p4",
+   "name": "PハネモノファミリースタジアムMD",
+   "col": 27,
+   "row": 40
+  },
+  {
+   "no": 818,
+   "rate": "p4",
+   "name": "PニュートキオGREENV1",
+   "col": 26,
+   "row": 40
+  },
+  {
+   "no": 820,
+   "rate": "p4",
+   "name": "PニュートキオGREENV1",
+   "col": 25,
+   "row": 40
+  },
+  {
+   "no": 821,
+   "rate": "p4",
+   "name": "Pポチッと一発おだてブタ2V1",
+   "col": 24,
+   "row": 40
+  },
+  {
+   "no": 822,
+   "rate": "p4",
+   "name": "Pポチッと一発おだてブタ2V1",
+   "col": 23,
+   "row": 40
+  },
+  {
+   "no": 823,
+   "rate": "p4",
+   "name": "Pポチッと一発おだてブタ2V1",
+   "col": 22,
+   "row": 40
+  },
+  {
+   "no": 825,
+   "rate": "p4",
+   "name": "PファインプレーH3",
+   "col": 21,
+   "row": 40
+  },
+  {
+   "no": 826,
+   "rate": "p4",
+   "name": "PファインプレーH3",
+   "col": 20,
+   "row": 40
+  },
+  {
+   "no": 827,
+   "rate": "p4",
+   "name": "PファインプレーH3",
+   "col": 19,
+   "row": 40
+  },
+  {
+   "no": 828,
+   "rate": "p4",
+   "name": "P花の慶次～裂N2-VC",
+   "col": 18,
+   "row": 40
+  },
+  {
+   "no": 830,
+   "rate": "p4",
+   "name": "P花の慶次～裂N2-VC",
+   "col": 17,
+   "row": 40
+  },
+  {
+   "no": 831,
+   "rate": "p4",
+   "name": "Ｐブラックラグーン４ＧＣＰＡ",
+   "col": 16,
+   "row": 40
+  },
+  {
+   "no": 832,
+   "rate": "p4",
+   "name": "P転生したらスライムだった件ARJ",
+   "col": 15,
+   "row": 40
+  },
+  {
+   "no": 833,
+   "rate": "p4",
+   "name": "P攻殻機動隊SAC＿2045AH－RS",
+   "col": 14,
+   "row": 40
+  },
+  {
+   "no": 835,
+   "rate": "p4",
+   "name": "Pうる星やつら2N2－K",
+   "col": 13,
+   "row": 40
+  },
+  {
+   "no": 836,
+   "rate": "p4",
+   "name": "Pフィーバー機動戦士ガンダムユニコーン2 Y",
+   "col": 12,
+   "row": 40
+  },
+  {
+   "no": 837,
+   "rate": "p4",
+   "name": "P乗物娘2LM3",
+   "col": 11,
+   "row": 40
+  },
+  {
+   "no": 838,
+   "rate": "p4",
+   "name": "Pフィーバー戦姫絶唱シンフォギア 黄金絶唱N",
+   "col": 10,
+   "row": 40
+  },
+  {
+   "no": 850,
+   "rate": "p4",
+   "name": "PバンドリL1AU1",
+   "col": 9,
+   "row": 40
+  },
+  {
+   "no": 851,
+   "rate": "p4",
+   "name": "Pデジハネ北斗の拳慈母SSPC",
+   "col": 9,
+   "row": 41
+  },
+  {
+   "no": 852,
+   "rate": "p4",
+   "name": "PAフィーバーからくりサーカス2YF",
+   "col": 10,
+   "row": 41
+  },
+  {
+   "no": 853,
+   "rate": "p4",
+   "name": "PA魔王学院の不適合者 魔王再臨99VerFVX",
+   "col": 11,
+   "row": 41
+  },
+  {
+   "no": 855,
+   "rate": "p4",
+   "name": "P／冴えない彼女の育てかた／A01",
+   "col": 12,
+   "row": 41
+  },
+  {
+   "no": 856,
+   "rate": "p4",
+   "name": "P戦国乙女7L0YU1",
+   "col": 13,
+   "row": 41
+  },
+  {
+   "no": 857,
+   "rate": "p4",
+   "name": "P戦国乙女7L0YU1",
+   "col": 14,
+   "row": 41
+  },
+  {
+   "no": 858,
+   "rate": "p4",
+   "name": "P魔法少女まどか☆マギカ3MAJ1",
+   "col": 15,
+   "row": 41
+  },
+  {
+   "no": 860,
+   "rate": "p4",
+   "name": "P北斗の拳強敵SSPA",
+   "col": 16,
+   "row": 41
+  },
+  {
+   "no": 861,
+   "rate": "p4",
+   "name": "P北斗の拳強敵SSPA",
+   "col": 17,
+   "row": 41
+  },
+  {
+   "no": 862,
+   "rate": "p4",
+   "name": "P北斗の拳強敵SSPA",
+   "col": 18,
+   "row": 41
+  },
+  {
+   "no": 863,
+   "rate": "p4",
+   "name": "PA大海物語5HLD",
+   "col": 19,
+   "row": 41
+  },
+  {
+   "no": 865,
+   "rate": "p4",
+   "name": "PA大海物語5HLD",
+   "col": 20,
+   "row": 41
+  },
+  {
+   "no": 866,
+   "rate": "p4",
+   "name": "PA大海物語5HLD",
+   "col": 21,
+   "row": 41
+  },
+  {
+   "no": 867,
+   "rate": "p4",
+   "name": "PAスーパー海物語IN沖縄6RBD",
+   "col": 22,
+   "row": 41
+  },
+  {
+   "no": 868,
+   "rate": "p4",
+   "name": "PAスーパー海物語IN沖縄6RBD",
+   "col": 23,
+   "row": 41
+  },
+  {
+   "no": 870,
+   "rate": "p4",
+   "name": "PA大海物語5ARBC",
+   "col": 24,
+   "row": 41
+  },
+  {
+   "no": 871,
+   "rate": "p4",
+   "name": "PA大海物語5ARBC",
+   "col": 25,
+   "row": 41
+  },
+  {
+   "no": 872,
+   "rate": "p4",
+   "name": "PA大海物語5ARBC",
+   "col": 26,
+   "row": 41
+  },
+  {
+   "no": 873,
+   "rate": "p4",
+   "name": "PA大海物語5ARBC",
+   "col": 27,
+   "row": 41
+  },
+  {
+   "no": 875,
+   "rate": "p4",
+   "name": "PA大海物語5ARBC",
+   "col": 28,
+   "row": 41
+  },
+  {
+   "no": 876,
+   "rate": "p4",
+   "name": "e新世紀エヴァンゲリオン17 はじまりの記憶R",
+   "col": 32,
+   "row": 41
+  },
+  {
+   "no": 877,
+   "rate": "p4",
+   "name": "e新世紀エヴァンゲリオン17 はじまりの記憶R",
+   "col": 33,
+   "row": 41
+  },
+  {
+   "no": 878,
+   "rate": "p4",
+   "name": "e新世紀エヴァンゲリオン17 はじまりの記憶R",
+   "col": 34,
+   "row": 41
+  },
+  {
+   "no": 880,
+   "rate": "p4",
+   "name": "e新世紀エヴァンゲリオン17 はじまりの記憶R",
+   "col": 35,
+   "row": 41
+  },
+  {
+   "no": 881,
+   "rate": "p4",
+   "name": "e新世紀エヴァンゲリオン17 はじまりの記憶R",
+   "col": 36,
+   "row": 41
+  },
+  {
+   "no": 882,
+   "rate": "p4",
+   "name": "e新世紀エヴァンゲリオン17 はじまりの記憶R",
+   "col": 37,
+   "row": 41
+  },
+  {
+   "no": 883,
+   "rate": "p4",
+   "name": "e新世紀エヴァンゲリオン17 はじまりの記憶R",
+   "col": 38,
+   "row": 41
+  },
+  {
+   "no": 885,
+   "rate": "p4",
+   "name": "e新世紀エヴァンゲリオン17 はじまりの記憶R",
+   "col": 39,
+   "row": 41
+  },
+  {
+   "no": 886,
+   "rate": "p4",
+   "name": "e新世紀エヴァンゲリオン17 はじまりの記憶R",
+   "col": 40,
+   "row": 41
+  },
+  {
+   "no": 887,
+   "rate": "p4",
+   "name": "e新世紀エヴァンゲリオン17 はじまりの記憶R",
+   "col": 41,
+   "row": 41
+  },
+  {
+   "no": 888,
+   "rate": "p4",
+   "name": "e東京喰種W",
+   "col": 42,
+   "row": 41
+  },
+  {
+   "no": 1000,
+   "rate": "p4",
+   "name": "e東京喰種W",
+   "col": 43,
+   "row": 41
+  },
+  {
+   "no": 1001,
+   "rate": "p4",
+   "name": "e東京喰種W",
+   "col": 44,
+   "row": 41
+  },
+  {
+   "no": 1002,
+   "rate": "p4",
+   "name": "e東京喰種W",
+   "col": 45,
+   "row": 41
+  },
+  {
+   "no": 1003,
+   "rate": "p4",
+   "name": "e東京喰種W",
+   "col": 46,
+   "row": 41
+  },
+  {
+   "no": 1005,
+   "rate": "p4",
+   "name": "e東京喰種W",
+   "col": 47,
+   "row": 41
+  },
+  {
+   "no": 1006,
+   "rate": "p4",
+   "name": "e東京喰種W",
+   "col": 48,
+   "row": 41
+  },
+  {
+   "no": 1007,
+   "rate": "p4",
+   "name": "e東京喰種W",
+   "col": 49,
+   "row": 41
+  },
+  {
+   "no": 1008,
+   "rate": "p4",
+   "name": "e東京喰種W",
+   "col": 50,
+   "row": 41
+  },
+  {
+   "no": 1010,
+   "rate": "p4",
+   "name": "e東京喰種W",
+   "col": 51,
+   "row": 41
+  },
+  {
+   "no": 1011,
+   "rate": "p4",
+   "name": "e東京喰種W",
+   "col": 51,
+   "row": 45
+  },
+  {
+   "no": 1012,
+   "rate": "p4",
+   "name": "e東京喰種W",
+   "col": 50,
+   "row": 45
+  },
+  {
+   "no": 1013,
+   "rate": "p4",
+   "name": "e東京喰種W",
+   "col": 49,
+   "row": 45
+  },
+  {
+   "no": 1015,
+   "rate": "p4",
+   "name": "e東京喰種W",
+   "col": 48,
+   "row": 45
+  },
+  {
+   "no": 1016,
+   "rate": "p4",
+   "name": "e東京喰種W",
+   "col": 47,
+   "row": 45
+  },
+  {
+   "no": 1017,
+   "rate": "p4",
+   "name": "e東京喰種W",
+   "col": 46,
+   "row": 45
+  },
+  {
+   "no": 1018,
+   "rate": "p4",
+   "name": "e東京喰種W",
+   "col": 45,
+   "row": 45
+  },
+  {
+   "no": 1020,
+   "rate": "p4",
+   "name": "e東京喰種W",
+   "col": 44,
+   "row": 45
+  },
+  {
+   "no": 1021,
+   "rate": "p4",
+   "name": "e東京喰種W",
+   "col": 43,
+   "row": 45
+  },
+  {
+   "no": 1022,
+   "rate": "p4",
+   "name": "e東京喰種W",
+   "col": 42,
+   "row": 45
+  },
+  {
+   "no": 1023,
+   "rate": "p4",
+   "name": "e新世紀エヴァンゲリオン17 はじまりの記憶R",
+   "col": 41,
+   "row": 45
+  },
+  {
+   "no": 1025,
+   "rate": "p4",
+   "name": "e新世紀エヴァンゲリオン17 はじまりの記憶R",
+   "col": 40,
+   "row": 45
+  },
+  {
+   "no": 1026,
+   "rate": "p4",
+   "name": "e新世紀エヴァンゲリオン17 はじまりの記憶R",
+   "col": 39,
+   "row": 45
+  },
+  {
+   "no": 1027,
+   "rate": "p4",
+   "name": "e新世紀エヴァンゲリオン17 はじまりの記憶R",
+   "col": 38,
+   "row": 45
+  },
+  {
+   "no": 1028,
+   "rate": "p4",
+   "name": "e新世紀エヴァンゲリオン17 はじまりの記憶R",
+   "col": 37,
+   "row": 45
+  },
+  {
+   "no": 1030,
+   "rate": "p4",
+   "name": "e新世紀エヴァンゲリオン17 はじまりの記憶R",
+   "col": 36,
+   "row": 45
+  },
+  {
+   "no": 1031,
+   "rate": "p4",
+   "name": "e新世紀エヴァンゲリオン17 はじまりの記憶R",
+   "col": 35,
+   "row": 45
+  },
+  {
+   "no": 1032,
+   "rate": "p4",
+   "name": "e新世紀エヴァンゲリオン17 はじまりの記憶R",
+   "col": 34,
+   "row": 45
+  },
+  {
+   "no": 1033,
+   "rate": "p4",
+   "name": "e新世紀エヴァンゲリオン17 はじまりの記憶R",
+   "col": 33,
+   "row": 45
+  },
+  {
+   "no": 1035,
+   "rate": "p4",
+   "name": "e新世紀エヴァンゲリオン17 はじまりの記憶R",
+   "col": 32,
+   "row": 45
+  },
+  {
+   "no": 1036,
+   "rate": "p4",
+   "name": "PAシン・エヴァンゲリオンY",
+   "col": 28,
+   "row": 45
+  },
+  {
+   "no": 1037,
+   "rate": "p4",
+   "name": "PAシン・エヴァンゲリオンY",
+   "col": 27,
+   "row": 45
+  },
+  {
+   "no": 1038,
+   "rate": "p4",
+   "name": "PA野生の王国6N2",
+   "col": 26,
+   "row": 45
+  },
+  {
+   "no": 1050,
+   "rate": "p4",
+   "name": "PA乗物娘2N",
+   "col": 25,
+   "row": 45
+  },
+  {
+   "no": 1051,
+   "rate": "p4",
+   "name": "PAひぐらしのなく頃に・輪廻転生99FD－TH",
+   "col": 24,
+   "row": 45
+  },
+  {
+   "no": 1052,
+   "rate": "p4",
+   "name": "Pデジハネ聖戦士ダンバイン2SSPB",
+   "col": 23,
+   "row": 45
+  },
+  {
+   "no": 1053,
+   "rate": "p4",
+   "name": "PAわんわんセレブレーションAGBD",
+   "col": 22,
+   "row": 45
+  },
+  {
+   "no": 1055,
+   "rate": "p4",
+   "name": "PA野生の王国5 N－K",
+   "col": 21,
+   "row": 45
+  },
+  {
+   "no": 1056,
+   "rate": "p4",
+   "name": "P弾球黙示録カイジ5N3A",
+   "col": 20,
+   "row": 45
+  },
+  {
+   "no": 1057,
+   "rate": "p4",
+   "name": "P宇宙戦艦ヤマト2202 ONLY ONE YR",
+   "col": 19,
+   "row": 45
+  },
+  {
+   "no": 1058,
+   "rate": "p4",
+   "name": "Pクイーンズブレイド4V1A",
+   "col": 18,
+   "row": 45
+  },
+  {
+   "no": 1060,
+   "rate": "p4",
+   "name": "P009 RE：CYBORG N3－K",
+   "col": 17,
+   "row": 45
+  },
+  {
+   "no": 1061,
+   "rate": "p4",
+   "name": "P中森明菜・歌姫伝説愛KD－NS",
+   "col": 16,
+   "row": 45
+  },
+  {
+   "no": 1062,
+   "rate": "p4",
+   "name": "P弾球黙示録カイジ沼5V2A",
+   "col": 15,
+   "row": 45
+  },
+  {
+   "no": 1063,
+   "rate": "p4",
+   "name": "PA花の慶次～傾奇一転N",
+   "col": 14,
+   "row": 45
+  },
+  {
+   "no": 1065,
+   "rate": "p4",
+   "name": "P／Re：ゼロから始める異世界生活鬼がかりver／A03",
+   "col": 13,
+   "row": 45
+  },
+  {
+   "no": 1066,
+   "rate": "p4",
+   "name": "P桃剣鬼神AD",
+   "col": 12,
+   "row": 45
+  },
+  {
+   "no": 1067,
+   "rate": "p4",
+   "name": "PAフィーバークィーンⅡYS",
+   "col": 11,
+   "row": 45
+  },
+  {
+   "no": 1068,
+   "rate": "p4",
+   "name": "Pとある魔術の禁書目録2 Light JWX",
+   "col": 10,
+   "row": 45
+  },
+  {
+   "no": 1070,
+   "rate": "p4",
+   "name": "Pルパン三世14L0YU1",
+   "col": 9,
+   "row": 45
+  },
+  {
+   "no": 1108,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 9,
+   "row": 46
+  },
+  {
+   "no": 1110,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 10,
+   "row": 46
+  },
+  {
+   "no": 1111,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 11,
+   "row": 46
+  },
+  {
+   "no": 1112,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 12,
+   "row": 46
+  },
+  {
+   "no": 1113,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 13,
+   "row": 46
+  },
+  {
+   "no": 1115,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 14,
+   "row": 46
+  },
+  {
+   "no": 1116,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 15,
+   "row": 46
+  },
+  {
+   "no": 1117,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 16,
+   "row": 46
+  },
+  {
+   "no": 1118,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 17,
+   "row": 46
+  },
+  {
+   "no": 1120,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 18,
+   "row": 46
+  },
+  {
+   "no": 1121,
+   "rate": "s20",
+   "name": "SネオアイムジャグラーEX-KK",
+   "col": 19,
+   "row": 46
+  },
+  {
+   "no": 1122,
+   "rate": "s20",
+   "name": "SネオアイムジャグラーEX-KK",
+   "col": 20,
+   "row": 46
+  },
+  {
+   "no": 1123,
+   "rate": "s20",
+   "name": "SネオアイムジャグラーEX-KK",
+   "col": 21,
+   "row": 46
+  },
+  {
+   "no": 1125,
+   "rate": "s20",
+   "name": "SネオアイムジャグラーEX-KK",
+   "col": 22,
+   "row": 46
+  },
+  {
+   "no": 1126,
+   "rate": "s20",
+   "name": "SネオアイムジャグラーEX-KK",
+   "col": 23,
+   "row": 46
+  },
+  {
+   "no": 1127,
+   "rate": "s20",
+   "name": "SネオアイムジャグラーEX-KK",
+   "col": 24,
+   "row": 46
+  },
+  {
+   "no": 1128,
+   "rate": "s20",
+   "name": "SネオアイムジャグラーEX-KK",
+   "col": 25,
+   "row": 46
+  },
+  {
+   "no": 1130,
+   "rate": "s20",
+   "name": "SネオアイムジャグラーEX-KK",
+   "col": 26,
+   "row": 46
+  },
+  {
+   "no": 1131,
+   "rate": "s20",
+   "name": "SネオアイムジャグラーEX-KK",
+   "col": 27,
+   "row": 46
+  },
+  {
+   "no": 1132,
+   "rate": "s20",
+   "name": "SネオアイムジャグラーEX-KK",
+   "col": 28,
+   "row": 46
+  },
+  {
+   "no": 1133,
+   "rate": "s20",
+   "name": "Lモンキーターン5CE",
+   "col": 32,
+   "row": 46
+  },
+  {
+   "no": 1135,
+   "rate": "s20",
+   "name": "Lモンキーターン5CE",
+   "col": 33,
+   "row": 46
+  },
+  {
+   "no": 1136,
+   "rate": "s20",
+   "name": "Lモンキーターン5CE",
+   "col": 34,
+   "row": 46
+  },
+  {
+   "no": 1137,
+   "rate": "s20",
+   "name": "Lモンキーターン5CE",
+   "col": 35,
+   "row": 46
+  },
+  {
+   "no": 1138,
+   "rate": "s20",
+   "name": "Lモンキーターン5CE",
+   "col": 36,
+   "row": 46
+  },
+  {
+   "no": 1150,
+   "rate": "s20",
+   "name": "Lモンキーターン5CE",
+   "col": 37,
+   "row": 46
+  },
+  {
+   "no": 1151,
+   "rate": "s20",
+   "name": "Lモンキーターン5CE",
+   "col": 38,
+   "row": 46
+  },
+  {
+   "no": 1152,
+   "rate": "s20",
+   "name": "Lモンキーターン5CE",
+   "col": 39,
+   "row": 46
+  },
+  {
+   "no": 1153,
+   "rate": "s20",
+   "name": "Lモンキーターン5CE",
+   "col": 40,
+   "row": 46
+  },
+  {
+   "no": 1155,
+   "rate": "s20",
+   "name": "Lモンキーターン5CE",
+   "col": 41,
+   "row": 46
+  },
+  {
+   "no": 1156,
+   "rate": "s20",
+   "name": "LモンスターハンターライズXA",
+   "col": 42,
+   "row": 46
+  },
+  {
+   "no": 1157,
+   "rate": "s20",
+   "name": "LモンスターハンターライズXA",
+   "col": 43,
+   "row": 46
+  },
+  {
+   "no": 1158,
+   "rate": "s20",
+   "name": "LモンスターハンターライズXA",
+   "col": 44,
+   "row": 46
+  },
+  {
+   "no": 1160,
+   "rate": "s20",
+   "name": "LモンスターハンターライズXA",
+   "col": 45,
+   "row": 46
+  },
+  {
+   "no": 1161,
+   "rate": "s20",
+   "name": "L スマスロ攻殻機動隊 ZS",
+   "col": 46,
+   "row": 46
+  },
+  {
+   "no": 1162,
+   "rate": "s20",
+   "name": "L スマスロ攻殻機動隊 ZS",
+   "col": 47,
+   "row": 46
+  },
+  {
+   "no": 1163,
+   "rate": "s20",
+   "name": "L スマスロ攻殻機動隊 ZS",
+   "col": 48,
+   "row": 46
+  },
+  {
+   "no": 1165,
+   "rate": "s20",
+   "name": "L スマスロ攻殻機動隊 ZS",
+   "col": 49,
+   "row": 46
+  },
+  {
+   "no": 1166,
+   "rate": "s20",
+   "name": "L スマスロ攻殻機動隊 ZS",
+   "col": 50,
+   "row": 46
+  },
+  {
+   "no": 1167,
+   "rate": "s20",
+   "name": "L スマスロ攻殻機動隊 ZS",
+   "col": 51,
+   "row": 46
+  },
+  {
+   "no": 1168,
+   "rate": "s20",
+   "name": "LヤバチバZM",
+   "col": 51,
+   "row": 50
+  },
+  {
+   "no": 1170,
+   "rate": "s20",
+   "name": "LヤバチバZM",
+   "col": 50,
+   "row": 50
+  },
+  {
+   "no": 1171,
+   "rate": "s20",
+   "name": "LヤバチバZM",
+   "col": 49,
+   "row": 50
+  },
+  {
+   "no": 1172,
+   "rate": "s20",
+   "name": "LヤバチバZM",
+   "col": 48,
+   "row": 50
+  },
+  {
+   "no": 1173,
+   "rate": "s20",
+   "name": "L スマスロ東京リベンジャーズ ZF",
+   "col": 47,
+   "row": 50
+  },
+  {
+   "no": 1175,
+   "rate": "s20",
+   "name": "L スマスロ東京リベンジャーズ ZF",
+   "col": 46,
+   "row": 50
+  },
+  {
+   "no": 1176,
+   "rate": "s20",
+   "name": "L スマスロ東京リベンジャーズ ZF",
+   "col": 45,
+   "row": 50
+  },
+  {
+   "no": 1177,
+   "rate": "s20",
+   "name": "L／スマスロマギアレコード／RN",
+   "col": 44,
+   "row": 50
+  },
+  {
+   "no": 1178,
+   "rate": "s20",
+   "name": "L／スマスロマギアレコード／RN",
+   "col": 43,
+   "row": 50
+  },
+  {
+   "no": 1180,
+   "rate": "s20",
+   "name": "L／スマスロマギアレコード／RN",
+   "col": 42,
+   "row": 50
+  },
+  {
+   "no": 1181,
+   "rate": "s20",
+   "name": "Lパチスロスーパーリオエース2ND02H",
+   "col": 41,
+   "row": 50
+  },
+  {
+   "no": 1182,
+   "rate": "s20",
+   "name": "Lパチスロスーパーリオエース2ND02H",
+   "col": 40,
+   "row": 50
+  },
+  {
+   "no": 1183,
+   "rate": "s20",
+   "name": "Lパチスロスーパーリオエース2ND02H",
+   "col": 39,
+   "row": 50
+  },
+  {
+   "no": 1185,
+   "rate": "s20",
+   "name": "Lパチスロスーパーリオエース2ND02H",
+   "col": 38,
+   "row": 50
+  },
+  {
+   "no": 1186,
+   "rate": "s20",
+   "name": "Lパチスロスーパーリオエース2ND02H",
+   "col": 37,
+   "row": 50
+  },
+  {
+   "no": 1187,
+   "rate": "s20",
+   "name": "Lモンキーターン5CE",
+   "col": 36,
+   "row": 50
+  },
+  {
+   "no": 1188,
+   "rate": "s20",
+   "name": "Lモンキーターン5CE",
+   "col": 35,
+   "row": 50
+  },
+  {
+   "no": 1200,
+   "rate": "s20",
+   "name": "Lモンキーターン5CE",
+   "col": 34,
+   "row": 50
+  },
+  {
+   "no": 1201,
+   "rate": "s20",
+   "name": "Lモンキーターン5CE",
+   "col": 33,
+   "row": 50
+  },
+  {
+   "no": 1202,
+   "rate": "s20",
+   "name": "Lモンキーターン5CE",
+   "col": 32,
+   "row": 50
+  },
+  {
+   "no": 1203,
+   "rate": "s20",
+   "name": "SネオアイムジャグラーEX-KK",
+   "col": 28,
+   "row": 50
+  },
+  {
+   "no": 1205,
+   "rate": "s20",
+   "name": "SネオアイムジャグラーEX-KK",
+   "col": 27,
+   "row": 50
+  },
+  {
+   "no": 1206,
+   "rate": "s20",
+   "name": "SネオアイムジャグラーEX-KK",
+   "col": 26,
+   "row": 50
+  },
+  {
+   "no": 1207,
+   "rate": "s20",
+   "name": "SネオアイムジャグラーEX-KK",
+   "col": 25,
+   "row": 50
+  },
+  {
+   "no": 1208,
+   "rate": "s20",
+   "name": "SネオアイムジャグラーEX-KK",
+   "col": 24,
+   "row": 50
+  },
+  {
+   "no": 1210,
+   "rate": "s20",
+   "name": "SネオアイムジャグラーEX-KK",
+   "col": 23,
+   "row": 50
+  },
+  {
+   "no": 1211,
+   "rate": "s20",
+   "name": "SネオアイムジャグラーEX-KK",
+   "col": 22,
+   "row": 50
+  },
+  {
+   "no": 1212,
+   "rate": "s20",
+   "name": "SネオアイムジャグラーEX-KK",
+   "col": 21,
+   "row": 50
+  },
+  {
+   "no": 1213,
+   "rate": "s20",
+   "name": "SネオアイムジャグラーEX-KK",
+   "col": 20,
+   "row": 50
+  },
+  {
+   "no": 1215,
+   "rate": "s20",
+   "name": "SネオアイムジャグラーEX-KK",
+   "col": 19,
+   "row": 50
+  },
+  {
+   "no": 1216,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 18,
+   "row": 50
+  },
+  {
+   "no": 1217,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 17,
+   "row": 50
+  },
+  {
+   "no": 1218,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 16,
+   "row": 50
+  },
+  {
+   "no": 1220,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 15,
+   "row": 50
+  },
+  {
+   "no": 1221,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 14,
+   "row": 50
+  },
+  {
+   "no": 1222,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 13,
+   "row": 50
+  },
+  {
+   "no": 1223,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 12,
+   "row": 50
+  },
+  {
+   "no": 1225,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 11,
+   "row": 50
+  },
+  {
+   "no": 1226,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 10,
+   "row": 50
+  },
+  {
+   "no": 1227,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 9,
+   "row": 50
+  },
+  {
+   "no": 1228,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 9,
+   "row": 51
+  },
+  {
+   "no": 1230,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 10,
+   "row": 51
+  },
+  {
+   "no": 1231,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 11,
+   "row": 51
+  },
+  {
+   "no": 1232,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 12,
+   "row": 51
+  },
+  {
+   "no": 1233,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 13,
+   "row": 51
+  },
+  {
+   "no": 1235,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 14,
+   "row": 51
+  },
+  {
+   "no": 1236,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 15,
+   "row": 51
+  },
+  {
+   "no": 1237,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 16,
+   "row": 51
+  },
+  {
+   "no": 1238,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 17,
+   "row": 51
+  },
+  {
+   "no": 1250,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 18,
+   "row": 51
+  },
+  {
+   "no": 1251,
+   "rate": "s20",
+   "name": "SネオアイムジャグラーEX-KK",
+   "col": 19,
+   "row": 51
+  },
+  {
+   "no": 1252,
+   "rate": "s20",
+   "name": "SネオアイムジャグラーEX-KK",
+   "col": 20,
+   "row": 51
+  },
+  {
+   "no": 1253,
+   "rate": "s20",
+   "name": "SネオアイムジャグラーEX-KK",
+   "col": 21,
+   "row": 51
+  },
+  {
+   "no": 1255,
+   "rate": "s20",
+   "name": "SネオアイムジャグラーEX-KK",
+   "col": 22,
+   "row": 51
+  },
+  {
+   "no": 1256,
+   "rate": "s20",
+   "name": "SネオアイムジャグラーEX-KK",
+   "col": 23,
+   "row": 51
+  },
+  {
+   "no": 1257,
+   "rate": "s20",
+   "name": "SネオアイムジャグラーEX-KK",
+   "col": 24,
+   "row": 51
+  },
+  {
+   "no": 1258,
+   "rate": "s20",
+   "name": "SネオアイムジャグラーEX-KK",
+   "col": 25,
+   "row": 51
+  },
+  {
+   "no": 1260,
+   "rate": "s20",
+   "name": "SネオアイムジャグラーEX-KK",
+   "col": 26,
+   "row": 51
+  },
+  {
+   "no": 1261,
+   "rate": "s20",
+   "name": "SネオアイムジャグラーEX-KK",
+   "col": 27,
+   "row": 51
+  },
+  {
+   "no": 1262,
+   "rate": "s20",
+   "name": "SネオアイムジャグラーEX-KK",
+   "col": 28,
+   "row": 51
+  },
+  {
+   "no": 1263,
+   "rate": "s20",
+   "name": "L 甲鉄城のカバネリ 海門決戦 XX",
+   "col": 32,
+   "row": 51
+  },
+  {
+   "no": 1265,
+   "rate": "s20",
+   "name": "L 甲鉄城のカバネリ 海門決戦 XX",
+   "col": 33,
+   "row": 51
+  },
+  {
+   "no": 1266,
+   "rate": "s20",
+   "name": "L 甲鉄城のカバネリ 海門決戦 XX",
+   "col": 34,
+   "row": 51
+  },
+  {
+   "no": 1267,
+   "rate": "s20",
+   "name": "L 甲鉄城のカバネリ 海門決戦 XX",
+   "col": 35,
+   "row": 51
+  },
+  {
+   "no": 1268,
+   "rate": "s20",
+   "name": "L 甲鉄城のカバネリ 海門決戦 XX",
+   "col": 36,
+   "row": 51
+  },
+  {
+   "no": 1270,
+   "rate": "s20",
+   "name": "L 甲鉄城のカバネリ 海門決戦 XX",
+   "col": 37,
+   "row": 51
+  },
+  {
+   "no": 1271,
+   "rate": "s20",
+   "name": "L 甲鉄城のカバネリ 海門決戦 XX",
+   "col": 38,
+   "row": 51
+  },
+  {
+   "no": 1272,
+   "rate": "s20",
+   "name": "L 甲鉄城のカバネリ 海門決戦 XX",
+   "col": 39,
+   "row": 51
+  },
+  {
+   "no": 1273,
+   "rate": "s20",
+   "name": "L 甲鉄城のカバネリ 海門決戦 XX",
+   "col": 40,
+   "row": 51
+  },
+  {
+   "no": 1275,
+   "rate": "s20",
+   "name": "L 甲鉄城のカバネリ 海門決戦 XX",
+   "col": 41,
+   "row": 51
+  },
+  {
+   "no": 1276,
+   "rate": "s20",
+   "name": "Lパチスロ鉄拳6YD01H",
+   "col": 42,
+   "row": 51
+  },
+  {
+   "no": 1277,
+   "rate": "s20",
+   "name": "Lパチスロ鉄拳6YD01H",
+   "col": 43,
+   "row": 51
+  },
+  {
+   "no": 1278,
+   "rate": "s20",
+   "name": "Lパチスロ鉄拳6YD01H",
+   "col": 44,
+   "row": 51
+  },
+  {
+   "no": 1280,
+   "rate": "s20",
+   "name": "Lパチスロ鉄拳6YD01H",
+   "col": 45,
+   "row": 51
+  },
+  {
+   "no": 1281,
+   "rate": "s20",
+   "name": "L スマスロ化物語 KH",
+   "col": 46,
+   "row": 51
+  },
+  {
+   "no": 1282,
+   "rate": "s20",
+   "name": "L スマスロ化物語 KH",
+   "col": 47,
+   "row": 51
+  },
+  {
+   "no": 1283,
+   "rate": "s20",
+   "name": "L スマスロ化物語 KH",
+   "col": 48,
+   "row": 51
+  },
+  {
+   "no": 1285,
+   "rate": "s20",
+   "name": "L スマスロ化物語 KH",
+   "col": 49,
+   "row": 51
+  },
+  {
+   "no": 1286,
+   "rate": "s20",
+   "name": "L スマスロ化物語 KH",
+   "col": 50,
+   "row": 51
+  },
+  {
+   "no": 1287,
+   "rate": "s20",
+   "name": "L スマスロ化物語 KH",
+   "col": 51,
+   "row": 51
+  },
+  {
+   "no": 1288,
+   "rate": "s20",
+   "name": "L炎炎ノ消防隊2",
+   "col": 51,
+   "row": 55
+  },
+  {
+   "no": 1300,
+   "rate": "s20",
+   "name": "L炎炎ノ消防隊2",
+   "col": 50,
+   "row": 55
+  },
+  {
+   "no": 1301,
+   "rate": "s20",
+   "name": "L炎炎ノ消防隊2",
+   "col": 49,
+   "row": 55
+  },
+  {
+   "no": 1302,
+   "rate": "s20",
+   "name": "L炎炎ノ消防隊2",
+   "col": 48,
+   "row": 55
+  },
+  {
+   "no": 1303,
+   "rate": "s20",
+   "name": "L炎炎ノ消防隊2",
+   "col": 47,
+   "row": 55
+  },
+  {
+   "no": 1305,
+   "rate": "s20",
+   "name": "L戦国コレクション6KS",
+   "col": 46,
+   "row": 55
+  },
+  {
+   "no": 1306,
+   "rate": "s20",
+   "name": "L戦国コレクション6KS",
+   "col": 45,
+   "row": 55
+  },
+  {
+   "no": 1307,
+   "rate": "s20",
+   "name": "L戦国コレクション6KS",
+   "col": 44,
+   "row": 55
+  },
+  {
+   "no": 1308,
+   "rate": "s20",
+   "name": "L戦国コレクション6KS",
+   "col": 43,
+   "row": 55
+  },
+  {
+   "no": 1310,
+   "rate": "s20",
+   "name": "L戦国コレクション6KS",
+   "col": 42,
+   "row": 55
+  },
+  {
+   "no": 1311,
+   "rate": "s20",
+   "name": "L 甲鉄城のカバネリ 海門決戦 XX",
+   "col": 41,
+   "row": 55
+  },
+  {
+   "no": 1312,
+   "rate": "s20",
+   "name": "L 甲鉄城のカバネリ 海門決戦 XX",
+   "col": 40,
+   "row": 55
+  },
+  {
+   "no": 1313,
+   "rate": "s20",
+   "name": "L 甲鉄城のカバネリ 海門決戦 XX",
+   "col": 39,
+   "row": 55
+  },
+  {
+   "no": 1315,
+   "rate": "s20",
+   "name": "L 甲鉄城のカバネリ 海門決戦 XX",
+   "col": 38,
+   "row": 55
+  },
+  {
+   "no": 1316,
+   "rate": "s20",
+   "name": "L 甲鉄城のカバネリ 海門決戦 XX",
+   "col": 37,
+   "row": 55
+  },
+  {
+   "no": 1317,
+   "rate": "s20",
+   "name": "L 甲鉄城のカバネリ 海門決戦 XX",
+   "col": 36,
+   "row": 55
+  },
+  {
+   "no": 1318,
+   "rate": "s20",
+   "name": "L 甲鉄城のカバネリ 海門決戦 XX",
+   "col": 35,
+   "row": 55
+  },
+  {
+   "no": 1320,
+   "rate": "s20",
+   "name": "L 甲鉄城のカバネリ 海門決戦 XX",
+   "col": 34,
+   "row": 55
+  },
+  {
+   "no": 1321,
+   "rate": "s20",
+   "name": "L 甲鉄城のカバネリ 海門決戦 XX",
+   "col": 33,
+   "row": 55
+  },
+  {
+   "no": 1322,
+   "rate": "s20",
+   "name": "L 甲鉄城のカバネリ 海門決戦 XX",
+   "col": 32,
+   "row": 55
+  },
+  {
+   "no": 1323,
+   "rate": "s20",
+   "name": "SネオアイムジャグラーEX-KK",
+   "col": 28,
+   "row": 55
+  },
+  {
+   "no": 1325,
+   "rate": "s20",
+   "name": "SネオアイムジャグラーEX-KK",
+   "col": 27,
+   "row": 55
+  },
+  {
+   "no": 1326,
+   "rate": "s20",
+   "name": "SネオアイムジャグラーEX-KK",
+   "col": 26,
+   "row": 55
+  },
+  {
+   "no": 1327,
+   "rate": "s20",
+   "name": "SネオアイムジャグラーEX-KK",
+   "col": 25,
+   "row": 55
+  },
+  {
+   "no": 1328,
+   "rate": "s20",
+   "name": "SネオアイムジャグラーEX-KK",
+   "col": 24,
+   "row": 55
+  },
+  {
+   "no": 1330,
+   "rate": "s20",
+   "name": "SネオアイムジャグラーEX-KK",
+   "col": 23,
+   "row": 55
+  },
+  {
+   "no": 1331,
+   "rate": "s20",
+   "name": "SネオアイムジャグラーEX-KK",
+   "col": 22,
+   "row": 55
+  },
+  {
+   "no": 1332,
+   "rate": "s20",
+   "name": "SネオアイムジャグラーEX-KK",
+   "col": 21,
+   "row": 55
+  },
+  {
+   "no": 1333,
+   "rate": "s20",
+   "name": "SネオアイムジャグラーEX-KK",
+   "col": 20,
+   "row": 55
+  },
+  {
+   "no": 1335,
+   "rate": "s20",
+   "name": "SネオアイムジャグラーEX-KK",
+   "col": 19,
+   "row": 55
+  },
+  {
+   "no": 1336,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 18,
+   "row": 55
+  },
+  {
+   "no": 1337,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 17,
+   "row": 55
+  },
+  {
+   "no": 1338,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 16,
+   "row": 55
+  },
+  {
+   "no": 1350,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 15,
+   "row": 55
+  },
+  {
+   "no": 1351,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 14,
+   "row": 55
+  },
+  {
+   "no": 1352,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 13,
+   "row": 55
+  },
+  {
+   "no": 1353,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 12,
+   "row": 55
+  },
+  {
+   "no": 1355,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 11,
+   "row": 55
+  },
+  {
+   "no": 1356,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 10,
+   "row": 55
+  },
+  {
+   "no": 1357,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 9,
+   "row": 55
+  },
+  {
+   "no": 1358,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 9,
+   "row": 56
+  },
+  {
+   "no": 1360,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 10,
+   "row": 56
+  },
+  {
+   "no": 1361,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 11,
+   "row": 56
+  },
+  {
+   "no": 1362,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 12,
+   "row": 56
+  },
+  {
+   "no": 1363,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 13,
+   "row": 56
+  },
+  {
+   "no": 1365,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 14,
+   "row": 56
+  },
+  {
+   "no": 1366,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 15,
+   "row": 56
+  },
+  {
+   "no": 1367,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 16,
+   "row": 56
+  },
+  {
+   "no": 1368,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 17,
+   "row": 56
+  },
+  {
+   "no": 1370,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 18,
+   "row": 56
+  },
+  {
+   "no": 1371,
+   "rate": "s20",
+   "name": "Sゴーゴージャグラー3KA",
+   "col": 19,
+   "row": 56
+  },
+  {
+   "no": 1372,
+   "rate": "s20",
+   "name": "Sゴーゴージャグラー3KA",
+   "col": 20,
+   "row": 56
+  },
+  {
+   "no": 1373,
+   "rate": "s20",
+   "name": "Sゴーゴージャグラー3KA",
+   "col": 21,
+   "row": 56
+  },
+  {
+   "no": 1375,
+   "rate": "s20",
+   "name": "Sゴーゴージャグラー3KA",
+   "col": 22,
+   "row": 56
+  },
+  {
+   "no": 1376,
+   "rate": "s20",
+   "name": "Sゴーゴージャグラー3KA",
+   "col": 23,
+   "row": 56
+  },
+  {
+   "no": 1377,
+   "rate": "s20",
+   "name": "Sゴーゴージャグラー3KA",
+   "col": 24,
+   "row": 56
+  },
+  {
+   "no": 1378,
+   "rate": "s20",
+   "name": "Sゴーゴージャグラー3KA",
+   "col": 25,
+   "row": 56
+  },
+  {
+   "no": 1380,
+   "rate": "s20",
+   "name": "Sゴーゴージャグラー3KA",
+   "col": 26,
+   "row": 56
+  },
+  {
+   "no": 1381,
+   "rate": "s20",
+   "name": "Sゴーゴージャグラー3KA",
+   "col": 27,
+   "row": 56
+  },
+  {
+   "no": 1382,
+   "rate": "s20",
+   "name": "Sゴーゴージャグラー3KA",
+   "col": 28,
+   "row": 56
+  },
+  {
+   "no": 1383,
+   "rate": "s20",
+   "name": "L スマスロ北斗の拳 転生の章2 MW",
+   "col": 32,
+   "row": 56
+  },
+  {
+   "no": 1385,
+   "rate": "s20",
+   "name": "L スマスロ北斗の拳 転生の章2 MW",
+   "col": 33,
+   "row": 56
+  },
+  {
+   "no": 1386,
+   "rate": "s20",
+   "name": "L スマスロ北斗の拳 転生の章2 MW",
+   "col": 34,
+   "row": 56
+  },
+  {
+   "no": 1387,
+   "rate": "s20",
+   "name": "L スマスロ北斗の拳 転生の章2 MW",
+   "col": 35,
+   "row": 56
+  },
+  {
+   "no": 1388,
+   "rate": "s20",
+   "name": "L スマスロ北斗の拳 転生の章2 MW",
+   "col": 36,
+   "row": 56
+  },
+  {
+   "no": 1500,
+   "rate": "s20",
+   "name": "L スマスロ北斗の拳 転生の章2 MW",
+   "col": 37,
+   "row": 56
+  },
+  {
+   "no": 1501,
+   "rate": "s20",
+   "name": "L スマスロ北斗の拳 転生の章2 MW",
+   "col": 38,
+   "row": 56
+  },
+  {
+   "no": 1502,
+   "rate": "s20",
+   "name": "L スマスロ北斗の拳 転生の章2 MW",
+   "col": 39,
+   "row": 56
+  },
+  {
+   "no": 1503,
+   "rate": "s20",
+   "name": "L スマスロ北斗の拳 転生の章2 MW",
+   "col": 40,
+   "row": 56
+  },
+  {
+   "no": 1505,
+   "rate": "s20",
+   "name": "L スマスロ北斗の拳 転生の章2 MW",
+   "col": 41,
+   "row": 56
+  },
+  {
+   "no": 1506,
+   "rate": "s20",
+   "name": "L パチスロ北斗の拳AD XR",
+   "col": 42,
+   "row": 56
+  },
+  {
+   "no": 1507,
+   "rate": "s20",
+   "name": "L パチスロ北斗の拳AD XR",
+   "col": 43,
+   "row": 56
+  },
+  {
+   "no": 1508,
+   "rate": "s20",
+   "name": "L パチスロ北斗の拳AD XR",
+   "col": 44,
+   "row": 56
+  },
+  {
+   "no": 1510,
+   "rate": "s20",
+   "name": "L パチスロ北斗の拳AD XR",
+   "col": 45,
+   "row": 56
+  },
+  {
+   "no": 1511,
+   "rate": "s20",
+   "name": "L パチスロ北斗の拳AD XR",
+   "col": 46,
+   "row": 56
+  },
+  {
+   "no": 1512,
+   "rate": "s20",
+   "name": "L パチスロ北斗の拳AD XR",
+   "col": 47,
+   "row": 56
+  },
+  {
+   "no": 1513,
+   "rate": "s20",
+   "name": "L パチスロ北斗の拳AD XR",
+   "col": 48,
+   "row": 56
+  },
+  {
+   "no": 1515,
+   "rate": "s20",
+   "name": "L パチスロ北斗の拳AD XR",
+   "col": 49,
+   "row": 56
+  },
+  {
+   "no": 1516,
+   "rate": "s20",
+   "name": "L パチスロ北斗の拳AD XR",
+   "col": 50,
+   "row": 56
+  },
+  {
+   "no": 1517,
+   "rate": "s20",
+   "name": "L パチスロ北斗の拳AD XR",
+   "col": 51,
+   "row": 56
+  },
+  {
+   "no": 1518,
+   "rate": "s20",
+   "name": "LバイオハザードRE：3 ZD",
+   "col": 51,
+   "row": 60
+  },
+  {
+   "no": 1520,
+   "rate": "s20",
+   "name": "LバイオハザードRE：3 ZD",
+   "col": 50,
+   "row": 60
+  },
+  {
+   "no": 1521,
+   "rate": "s20",
+   "name": "LバイオハザードRE：3 ZD",
+   "col": 49,
+   "row": 60
+  },
+  {
+   "no": 1522,
+   "rate": "s20",
+   "name": "LバイオハザードRE：3 ZD",
+   "col": 48,
+   "row": 60
+  },
+  {
+   "no": 1523,
+   "rate": "s20",
+   "name": "Lかぐや様は告らせたいjA",
+   "col": 47,
+   "row": 60
+  },
+  {
+   "no": 1525,
+   "rate": "s20",
+   "name": "Lかぐや様は告らせたいjA",
+   "col": 46,
+   "row": 60
+  },
+  {
+   "no": 1526,
+   "rate": "s20",
+   "name": "Lかぐや様は告らせたいjA",
+   "col": 45,
+   "row": 60
+  },
+  {
+   "no": 1527,
+   "rate": "s20",
+   "name": "LパチスロゴッドイーターリザレクションSLED",
+   "col": 44,
+   "row": 60
+  },
+  {
+   "no": 1528,
+   "rate": "s20",
+   "name": "LパチスロゴッドイーターリザレクションSLED",
+   "col": 43,
+   "row": 60
+  },
+  {
+   "no": 1530,
+   "rate": "s20",
+   "name": "LパチスロゴッドイーターリザレクションSLED",
+   "col": 42,
+   "row": 60
+  },
+  {
+   "no": 1531,
+   "rate": "s20",
+   "name": "L スマスロ北斗の拳 転生の章2 MW",
+   "col": 41,
+   "row": 60
+  },
+  {
+   "no": 1532,
+   "rate": "s20",
+   "name": "L スマスロ北斗の拳 転生の章2 MW",
+   "col": 40,
+   "row": 60
+  },
+  {
+   "no": 1533,
+   "rate": "s20",
+   "name": "L スマスロ北斗の拳 転生の章2 MW",
+   "col": 39,
+   "row": 60
+  },
+  {
+   "no": 1535,
+   "rate": "s20",
+   "name": "L スマスロ北斗の拳 転生の章2 MW",
+   "col": 38,
+   "row": 60
+  },
+  {
+   "no": 1536,
+   "rate": "s20",
+   "name": "L スマスロ北斗の拳 転生の章2 MW",
+   "col": 37,
+   "row": 60
+  },
+  {
+   "no": 1537,
+   "rate": "s20",
+   "name": "L スマスロ北斗の拳 転生の章2 MW",
+   "col": 36,
+   "row": 60
+  },
+  {
+   "no": 1538,
+   "rate": "s20",
+   "name": "L スマスロ北斗の拳 転生の章2 MW",
+   "col": 35,
+   "row": 60
+  },
+  {
+   "no": 1550,
+   "rate": "s20",
+   "name": "L スマスロ北斗の拳 転生の章2 MW",
+   "col": 34,
+   "row": 60
+  },
+  {
+   "no": 1551,
+   "rate": "s20",
+   "name": "L スマスロ北斗の拳 転生の章2 MW",
+   "col": 33,
+   "row": 60
+  },
+  {
+   "no": 1552,
+   "rate": "s20",
+   "name": "L スマスロ北斗の拳 転生の章2 MW",
+   "col": 32,
+   "row": 60
+  },
+  {
+   "no": 1553,
+   "rate": "s20",
+   "name": "Sゴーゴージャグラー3KA",
+   "col": 28,
+   "row": 60
+  },
+  {
+   "no": 1555,
+   "rate": "s20",
+   "name": "Sゴーゴージャグラー3KA",
+   "col": 27,
+   "row": 60
+  },
+  {
+   "no": 1556,
+   "rate": "s20",
+   "name": "Sゴーゴージャグラー3KA",
+   "col": 26,
+   "row": 60
+  },
+  {
+   "no": 1557,
+   "rate": "s20",
+   "name": "Sゴーゴージャグラー3KA",
+   "col": 25,
+   "row": 60
+  },
+  {
+   "no": 1558,
+   "rate": "s20",
+   "name": "Sゴーゴージャグラー3KA",
+   "col": 24,
+   "row": 60
+  },
+  {
+   "no": 1560,
+   "rate": "s20",
+   "name": "Sゴーゴージャグラー3KA",
+   "col": 23,
+   "row": 60
+  },
+  {
+   "no": 1561,
+   "rate": "s20",
+   "name": "Sゴーゴージャグラー3KA",
+   "col": 22,
+   "row": 60
+  },
+  {
+   "no": 1562,
+   "rate": "s20",
+   "name": "Sゴーゴージャグラー3KA",
+   "col": 21,
+   "row": 60
+  },
+  {
+   "no": 1563,
+   "rate": "s20",
+   "name": "Sゴーゴージャグラー3KA",
+   "col": 20,
+   "row": 60
+  },
+  {
+   "no": 1565,
+   "rate": "s20",
+   "name": "Sゴーゴージャグラー3KA",
+   "col": 19,
+   "row": 60
+  },
+  {
+   "no": 1566,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 18,
+   "row": 60
+  },
+  {
+   "no": 1567,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 17,
+   "row": 60
+  },
+  {
+   "no": 1568,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 16,
+   "row": 60
+  },
+  {
+   "no": 1570,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 15,
+   "row": 60
+  },
+  {
+   "no": 1571,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 14,
+   "row": 60
+  },
+  {
+   "no": 1572,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 13,
+   "row": 60
+  },
+  {
+   "no": 1573,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 12,
+   "row": 60
+  },
+  {
+   "no": 1575,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 11,
+   "row": 60
+  },
+  {
+   "no": 1576,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 10,
+   "row": 60
+  },
+  {
+   "no": 1577,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 9,
+   "row": 60
+  },
+  {
+   "no": 1578,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 9,
+   "row": 61
+  },
+  {
+   "no": 1580,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 10,
+   "row": 61
+  },
+  {
+   "no": 1581,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 11,
+   "row": 61
+  },
+  {
+   "no": 1582,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 12,
+   "row": 61
+  },
+  {
+   "no": 1583,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 13,
+   "row": 61
+  },
+  {
+   "no": 1585,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 14,
+   "row": 61
+  },
+  {
+   "no": 1586,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 15,
+   "row": 61
+  },
+  {
+   "no": 1587,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 16,
+   "row": 61
+  },
+  {
+   "no": 1588,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 17,
+   "row": 61
+  },
+  {
+   "no": 1600,
+   "rate": "s20",
+   "name": "SマイジャグラーⅤKD",
+   "col": 18,
+   "row": 61
+  },
+  {
+   "no": 1601,
+   "rate": "s20",
+   "name": "Sファンキージャグラー2KT",
+   "col": 19,
+   "row": 61
+  },
+  {
+   "no": 1602,
+   "rate": "s20",
+   "name": "Sファンキージャグラー2KT",
+   "col": 20,
+   "row": 61
+  },
+  {
+   "no": 1603,
+   "rate": "s20",
+   "name": "Sファンキージャグラー2KT",
+   "col": 21,
+   "row": 61
+  },
+  {
+   "no": 1605,
+   "rate": "s20",
+   "name": "Sファンキージャグラー2KT",
+   "col": 22,
+   "row": 61
+  },
+  {
+   "no": 1606,
+   "rate": "s20",
+   "name": "Sファンキージャグラー2KT",
+   "col": 23,
+   "row": 61
+  },
+  {
+   "no": 1607,
+   "rate": "s20",
+   "name": "SジャグラーガールズSS－KH",
+   "col": 24,
+   "row": 61
+  },
+  {
+   "no": 1608,
+   "rate": "s20",
+   "name": "SジャグラーガールズSS－KH",
+   "col": 25,
+   "row": 61
+  },
+  {
+   "no": 1610,
+   "rate": "s20",
+   "name": "SジャグラーガールズSS－KH",
+   "col": 26,
+   "row": 61
+  },
+  {
+   "no": 1611,
+   "rate": "s20",
+   "name": "SジャグラーガールズSS－KH",
+   "col": 27,
+   "row": 61
+  },
+  {
+   "no": 1612,
+   "rate": "s20",
+   "name": "SジャグラーガールズSS－KH",
+   "col": 28,
+   "row": 61
+  },
+  {
+   "no": 1613,
+   "rate": "s20",
+   "name": "L／ソードアート・オンラインⅡ／PA1",
+   "col": 32,
+   "row": 61
+  },
+  {
+   "no": 1615,
+   "rate": "s20",
+   "name": "L／ソードアート・オンラインⅡ／PA1",
+   "col": 33,
+   "row": 61
+  },
+  {
+   "no": 1616,
+   "rate": "s20",
+   "name": "L／ソードアート・オンラインⅡ／PA1",
+   "col": 34,
+   "row": 61
+  },
+  {
+   "no": 1617,
+   "rate": "s20",
+   "name": "L／ソードアート・オンラインⅡ／PA1",
+   "col": 35,
+   "row": 61
+  },
+  {
+   "no": 1618,
+   "rate": "s20",
+   "name": "L／ソードアート・オンラインⅡ／PA1",
+   "col": 36,
+   "row": 61
+  },
+  {
+   "no": 1620,
+   "rate": "s20",
+   "name": "L／ソードアート・オンラインⅡ／PA1",
+   "col": 37,
+   "row": 61
+  },
+  {
+   "no": 1621,
+   "rate": "s20",
+   "name": "L／ソードアート・オンラインⅡ／PA1",
+   "col": 38,
+   "row": 61
+  },
+  {
+   "no": 1622,
+   "rate": "s20",
+   "name": "L／ソードアート・オンラインⅡ／PA1",
+   "col": 39,
+   "row": 61
+  },
+  {
+   "no": 1623,
+   "rate": "s20",
+   "name": "L戦国乙女5L8",
+   "col": 40,
+   "row": 61
+  },
+  {
+   "no": 1625,
+   "rate": "s20",
+   "name": "L戦国乙女5L8",
+   "col": 41,
+   "row": 61
+  },
+  {
+   "no": 1626,
+   "rate": "s20",
+   "name": "L戦国乙女5L8",
+   "col": 42,
+   "row": 61
+  },
+  {
+   "no": 1627,
+   "rate": "s20",
+   "name": "L戦国乙女5L8",
+   "col": 43,
+   "row": 61
+  },
+  {
+   "no": 1628,
+   "rate": "s20",
+   "name": "L戦国乙女5L8",
+   "col": 44,
+   "row": 61
+  },
+  {
+   "no": 1630,
+   "rate": "s20",
+   "name": "L戦国乙女5L8",
+   "col": 45,
+   "row": 61
+  },
+  {
+   "no": 1631,
+   "rate": "s20",
+   "name": "L戦国乙女5L8",
+   "col": 46,
+   "row": 61
+  },
+  {
+   "no": 1632,
+   "rate": "s20",
+   "name": "L戦国乙女5L8",
+   "col": 47,
+   "row": 61
+  },
+  {
+   "no": 1633,
+   "rate": "s20",
+   "name": "L戦国乙女5L8",
+   "col": 48,
+   "row": 61
+  },
+  {
+   "no": 1635,
+   "rate": "s20",
+   "name": "L戦国乙女5L8",
+   "col": 49,
+   "row": 61
+  },
+  {
+   "no": 1636,
+   "rate": "s20",
+   "name": "L戦国乙女5L8",
+   "col": 50,
+   "row": 61
+  },
+  {
+   "no": 1637,
+   "rate": "s20",
+   "name": "L戦国乙女5L8",
+   "col": 51,
+   "row": 61
+  },
+  {
+   "no": 1638,
+   "rate": "s20",
+   "name": "S／沖ドキ！BLACK／EP",
+   "col": 51,
+   "row": 65
+  },
+  {
+   "no": 1650,
+   "rate": "s20",
+   "name": "S／沖ドキ！BLACK／EP",
+   "col": 50,
+   "row": 65
+  },
+  {
+   "no": 1651,
+   "rate": "s20",
+   "name": "S／沖ドキ！BLACK／EP",
+   "col": 49,
+   "row": 65
+  },
+  {
+   "no": 1652,
+   "rate": "s20",
+   "name": "S／沖ドキ！BLACK／EP",
+   "col": 48,
+   "row": 65
+  },
+  {
+   "no": 1653,
+   "rate": "s20",
+   "name": "S／沖ドキ！BLACK／EP",
+   "col": 47,
+   "row": 65
+  },
+  {
+   "no": 1655,
+   "rate": "s20",
+   "name": "S／沖ドキ！BLACK／EP",
+   "col": 46,
+   "row": 65
+  },
+  {
+   "no": 1656,
+   "rate": "s20",
+   "name": "S／沖ドキ！GOLD／LS",
+   "col": 45,
+   "row": 65
+  },
+  {
+   "no": 1657,
+   "rate": "s20",
+   "name": "S／沖ドキ！GOLD／LS",
+   "col": 44,
+   "row": 65
+  },
+  {
+   "no": 1658,
+   "rate": "s20",
+   "name": "S／沖ドキ！GOLD／LS",
+   "col": 43,
+   "row": 65
+  },
+  {
+   "no": 1660,
+   "rate": "s20",
+   "name": "S／沖ドキ！GOLD／LS",
+   "col": 42,
+   "row": 65
+  },
+  {
+   "no": 1661,
+   "rate": "s20",
+   "name": "S／沖ドキ！BLACK／XA",
+   "col": 41,
+   "row": 65
+  },
+  {
+   "no": 1662,
+   "rate": "s20",
+   "name": "S／沖ドキ！BLACK／XA",
+   "col": 40,
+   "row": 65
+  },
+  {
+   "no": 1663,
+   "rate": "s20",
+   "name": "S／沖ドキ！BLACK／XA",
+   "col": 39,
+   "row": 65
+  },
+  {
+   "no": 1665,
+   "rate": "s20",
+   "name": "S／沖ドキ！BLACK／XA",
+   "col": 38,
+   "row": 65
+  },
+  {
+   "no": 1666,
+   "rate": "s20",
+   "name": "S／沖ドキ！BLACK／XA",
+   "col": 37,
+   "row": 65
+  },
+  {
+   "no": 1667,
+   "rate": "s20",
+   "name": "S／沖ドキ！BLACK／XA",
+   "col": 36,
+   "row": 65
+  },
+  {
+   "no": 1668,
+   "rate": "s20",
+   "name": "S／沖ドキ！BLACK／XA",
+   "col": 35,
+   "row": 65
+  },
+  {
+   "no": 1670,
+   "rate": "s20",
+   "name": "S／沖ドキ！BLACK／XA",
+   "col": 34,
+   "row": 65
+  },
+  {
+   "no": 1671,
+   "rate": "s20",
+   "name": "S／沖ドキ！BLACK／XA",
+   "col": 33,
+   "row": 65
+  },
+  {
+   "no": 1672,
+   "rate": "s20",
+   "name": "S／沖ドキ！BLACK／XA",
+   "col": 32,
+   "row": 65
+  },
+  {
+   "no": 1673,
+   "rate": "s20",
+   "name": "SウルトラミラクルジャグラーKT",
+   "col": 28,
+   "row": 65
+  },
+  {
+   "no": 1675,
+   "rate": "s20",
+   "name": "SウルトラミラクルジャグラーKT",
+   "col": 27,
+   "row": 65
+  },
+  {
+   "no": 1676,
+   "rate": "s20",
+   "name": "SウルトラミラクルジャグラーKT",
+   "col": 26,
+   "row": 65
+  },
+  {
+   "no": 1677,
+   "rate": "s20",
+   "name": "SウルトラミラクルジャグラーKT",
+   "col": 25,
+   "row": 65
+  },
+  {
+   "no": 1678,
+   "rate": "s20",
+   "name": "SウルトラミラクルジャグラーKT",
+   "col": 24,
+   "row": 65
+  },
+  {
+   "no": 1680,
+   "rate": "s20",
+   "name": "SミスタージャグラーKK",
+   "col": 23,
+   "row": 65
+  },
+  {
+   "no": 1681,
+   "rate": "s20",
+   "name": "SミスタージャグラーKK",
+   "col": 22,
+   "row": 65
+  },
+  {
+   "no": 1682,
+   "rate": "s20",
+   "name": "SミスタージャグラーKK",
+   "col": 21,
+   "row": 65
+  },
+  {
+   "no": 1683,
+   "rate": "s20",
+   "name": "SミスタージャグラーKK",
+   "col": 20,
+   "row": 65
+  },
+  {
+   "no": 1685,
+   "rate": "s20",
+   "name": "SミスタージャグラーKK",
+   "col": 19,
+   "row": 65
+  },
+  {
+   "no": 1686,
+   "rate": "s20",
+   "name": "SアイムジャグラーEX－TP",
+   "col": 18,
+   "row": 65
+  },
+  {
+   "no": 1687,
+   "rate": "s20",
+   "name": "SアイムジャグラーEX－TP",
+   "col": 17,
+   "row": 65
+  },
+  {
+   "no": 1688,
+   "rate": "s20",
+   "name": "SアイムジャグラーEX－TP",
+   "col": 16,
+   "row": 65
+  },
+  {
+   "no": 1700,
+   "rate": "s20",
+   "name": "SアイムジャグラーEX－TP",
+   "col": 15,
+   "row": 65
+  },
+  {
+   "no": 1701,
+   "rate": "s20",
+   "name": "SアイムジャグラーEX－TP",
+   "col": 14,
+   "row": 65
+  },
+  {
+   "no": 1702,
+   "rate": "s20",
+   "name": "SアイムジャグラーEX－TP",
+   "col": 13,
+   "row": 65
+  },
+  {
+   "no": 1703,
+   "rate": "s20",
+   "name": "SアイムジャグラーEX－TP",
+   "col": 12,
+   "row": 65
+  },
+  {
+   "no": 1705,
+   "rate": "s20",
+   "name": "SアイムジャグラーEX－TP",
+   "col": 11,
+   "row": 65
+  },
+  {
+   "no": 1706,
+   "rate": "s20",
+   "name": "SアイムジャグラーEX－TP",
+   "col": 10,
+   "row": 65
+  },
+  {
+   "no": 1707,
+   "rate": "s20",
+   "name": "SアイムジャグラーEX－TP",
+   "col": 9,
+   "row": 65
+  },
+  {
+   "no": 1708,
+   "rate": "s20",
+   "name": "S／新ハナビR／HA",
+   "col": 9,
+   "row": 66
+  },
+  {
+   "no": 1710,
+   "rate": "s20",
+   "name": "S／新ハナビR／HA",
+   "col": 10,
+   "row": 66
+  },
+  {
+   "no": 1711,
+   "rate": "s20",
+   "name": "S／新ハナビR／HA",
+   "col": 11,
+   "row": 66
+  },
+  {
+   "no": 1712,
+   "rate": "s20",
+   "name": "SニューパルサーSP3CC",
+   "col": 12,
+   "row": 66
+  },
+  {
+   "no": 1713,
+   "rate": "s20",
+   "name": "SニューパルサーSP3CC",
+   "col": 13,
+   "row": 66
+  },
+  {
+   "no": 1715,
+   "rate": "s20",
+   "name": "SニューパルサーSP3CC",
+   "col": 14,
+   "row": 66
+  },
+  {
+   "no": 1716,
+   "rate": "s20",
+   "name": "S ディスクアップ2 ZF",
+   "col": 15,
+   "row": 66
+  },
+  {
+   "no": 1717,
+   "rate": "s20",
+   "name": "S ディスクアップ2 ZF",
+   "col": 16,
+   "row": 66
+  },
+  {
+   "no": 1718,
+   "rate": "s20",
+   "name": "S／クランキークレスト／CR",
+   "col": 17,
+   "row": 66
+  },
+  {
+   "no": 1720,
+   "rate": "s20",
+   "name": "S この素晴らしい世界に祝福を！ZR",
+   "col": 18,
+   "row": 66
+  },
+  {
+   "no": 1721,
+   "rate": "s20",
+   "name": "LからくりサーカスG",
+   "col": 19,
+   "row": 66
+  },
+  {
+   "no": 1722,
+   "rate": "s20",
+   "name": "LからくりサーカスG",
+   "col": 20,
+   "row": 66
+  },
+  {
+   "no": 1723,
+   "rate": "s20",
+   "name": "LからくりサーカスG",
+   "col": 21,
+   "row": 66
+  },
+  {
+   "no": 1725,
+   "rate": "s20",
+   "name": "LからくりサーカスG",
+   "col": 22,
+   "row": 66
+  },
+  {
+   "no": 1726,
+   "rate": "s20",
+   "name": "LからくりサーカスG",
+   "col": 23,
+   "row": 66
+  },
+  {
+   "no": 1727,
+   "rate": "s20",
+   "name": "L／真打吉宗／A1",
+   "col": 24,
+   "row": 66
+  },
+  {
+   "no": 1728,
+   "rate": "s20",
+   "name": "L／真打吉宗／A1",
+   "col": 25,
+   "row": 66
+  },
+  {
+   "no": 1730,
+   "rate": "s20",
+   "name": "L／真打吉宗／A1",
+   "col": 26,
+   "row": 66
+  },
+  {
+   "no": 1731,
+   "rate": "s20",
+   "name": "L／真打吉宗／A1",
+   "col": 27,
+   "row": 66
+  },
+  {
+   "no": 1732,
+   "rate": "s20",
+   "name": "L／真打吉宗／A1",
+   "col": 28,
+   "row": 66
+  },
+  {
+   "no": 1733,
+   "rate": "s20",
+   "name": "Sハナハナホウオウ～天翔～EX－30",
+   "col": 32,
+   "row": 66
+  },
+  {
+   "no": 1735,
+   "rate": "s20",
+   "name": "Sハナハナホウオウ～天翔～EX－30",
+   "col": 33,
+   "row": 66
+  },
+  {
+   "no": 1736,
+   "rate": "s20",
+   "name": "SBニューキングハナハナVPA－30",
+   "col": 34,
+   "row": 66
+  },
+  {
+   "no": 1737,
+   "rate": "s20",
+   "name": "SBニューキングハナハナVPA－30",
+   "col": 35,
+   "row": 66
+  },
+  {
+   "no": 1738,
+   "rate": "s20",
+   "name": "SBニューキングハナハナVPA－30",
+   "col": 36,
+   "row": 66
+  },
+  {
+   "no": 1750,
+   "rate": "s20",
+   "name": "SBニューキングハナハナVPA－30",
+   "col": 37,
+   "row": 66
+  },
+  {
+   "no": 1751,
+   "rate": "s20",
+   "name": "SBニューキングハナハナVPA－30",
+   "col": 38,
+   "row": 66
+  },
+  {
+   "no": 1752,
+   "rate": "s20",
+   "name": "SBニューキングハナハナVPA－30",
+   "col": 39,
+   "row": 66
+  },
+  {
+   "no": 1753,
+   "rate": "s20",
+   "name": "SBニューキングハナハナVPA－30",
+   "col": 40,
+   "row": 66
+  },
+  {
+   "no": 1755,
+   "rate": "s20",
+   "name": "SBニューキングハナハナVPA－30",
+   "col": 41,
+   "row": 66
+  },
+  {
+   "no": 1756,
+   "rate": "s20",
+   "name": "SキングハナハナSP－30",
+   "col": 42,
+   "row": 66
+  },
+  {
+   "no": 1757,
+   "rate": "s20",
+   "name": "SキングハナハナSP－30",
+   "col": 43,
+   "row": 66
+  },
+  {
+   "no": 1758,
+   "rate": "s20",
+   "name": "SキングハナハナSP－30",
+   "col": 44,
+   "row": 66
+  },
+  {
+   "no": 1760,
+   "rate": "s20",
+   "name": "SキングハナハナSP－30",
+   "col": 45,
+   "row": 66
+  },
+  {
+   "no": 1761,
+   "rate": "s20",
+   "name": "SキングハナハナSP－30",
+   "col": 46,
+   "row": 66
+  },
+  {
+   "no": 1762,
+   "rate": "s20",
+   "name": "SキングハナハナSP－30",
+   "col": 47,
+   "row": 66
+  },
+  {
+   "no": 1763,
+   "rate": "s20",
+   "name": "SキングハナハナSP－30",
+   "col": 48,
+   "row": 66
+  },
+  {
+   "no": 1765,
+   "rate": "s20",
+   "name": "SキングハナハナSP－30",
+   "col": 49,
+   "row": 66
+  },
+  {
+   "no": 1766,
+   "rate": "s20",
+   "name": "SキングハナハナSP－30",
+   "col": 50,
+   "row": 66
+  },
+  {
+   "no": 1767,
+   "rate": "s20",
+   "name": "SキングハナハナSP－30",
+   "col": 51,
+   "row": 66
+  },
+  {
+   "no": 1768,
+   "rate": "s20",
+   "name": "LBケロット5ND05H",
+   "col": 6,
+   "row": 62
+  },
+  {
+   "no": 1770,
+   "rate": "s20",
+   "name": "LB不二子M2",
+   "col": 6,
+   "row": 61
+  },
+  {
+   "no": 1771,
+   "rate": "s20",
+   "name": "L／ハナビ／KM",
+   "col": 6,
+   "row": 60
+  },
+  {
+   "no": 1772,
+   "rate": "s20",
+   "name": "LB不二子M2",
+   "col": 6,
+   "row": 59
+  },
+  {
+   "no": 1773,
+   "rate": "s20",
+   "name": "LB／クレアの秘宝伝ボーナストリガーVER．／A2",
+   "col": 6,
+   "row": 58
+  },
+  {
+   "no": 1775,
+   "rate": "s20",
+   "name": "LBAREXBRIGHTBA",
+   "col": 6,
+   "row": 57
+  },
+  {
+   "no": 1776,
+   "rate": "s20",
+   "name": "Ｌ　ＤＩＳＣＵＰウルトラリミックス　ＸＲ",
+   "col": 6,
+   "row": 56
+  },
+  {
+   "no": 1777,
+   "rate": "s20",
+   "name": "L／ハナビ／KM",
+   "col": 6,
+   "row": 55
+  },
+  {
+   "no": 1778,
+   "rate": "s20",
+   "name": "LB／シェイクボーナストリガー／A1",
+   "col": 6,
+   "row": 54
+  },
+  {
+   "no": 1780,
+   "rate": "s20",
+   "name": "LアズールレーンTHE ANIMATION KN",
+   "col": 6,
+   "row": 51
+  },
+  {
+   "no": 1781,
+   "rate": "s20",
+   "name": "L／いざ番長／SB8",
+   "col": 6,
+   "row": 50
+  },
+  {
+   "no": 1782,
+   "rate": "s20",
+   "name": "LToLOVEるダークネスS6",
+   "col": 6,
+   "row": 49
+  },
+  {
+   "no": 1783,
+   "rate": "s20",
+   "name": "L麻雀格闘倶楽部覚醒KM",
+   "col": 6,
+   "row": 48
+  },
+  {
+   "no": 1785,
+   "rate": "s20",
+   "name": "LタクトオーパスM1",
+   "col": 6,
+   "row": 47
+  },
+  {
+   "no": 1786,
+   "rate": "s20",
+   "name": "L新鬼武者3SA",
+   "col": 6,
+   "row": 46
+  },
+  {
+   "no": 1787,
+   "rate": "s20",
+   "name": "L戦国乙女4S3",
+   "col": 6,
+   "row": 45
+  },
+  {
+   "no": 1788,
+   "rate": "s20",
+   "name": "LB 異世界かるてっと KR",
+   "col": 5,
+   "row": 45
+  },
+  {
+   "no": 1800,
+   "rate": "s20",
+   "name": "LB／シェイクボーナストリガー／A1",
+   "col": 5,
+   "row": 46
+  },
+  {
+   "no": 1801,
+   "rate": "s20",
+   "name": "L／ハナビ／KM",
+   "col": 5,
+   "row": 47
+  },
+  {
+   "no": 1802,
+   "rate": "s20",
+   "name": "Lうみねこのなく頃に2A1",
+   "col": 5,
+   "row": 48
+  },
+  {
+   "no": 1803,
+   "rate": "s20",
+   "name": "LBAREXBRIGHTBA",
+   "col": 5,
+   "row": 49
+  },
+  {
+   "no": 1805,
+   "rate": "s20",
+   "name": "LB／スマスロサンダーVHA",
+   "col": 5,
+   "row": 50
+  },
+  {
+   "no": 1806,
+   "rate": "s20",
+   "name": "LBAREXBRIGHTBA",
+   "col": 5,
+   "row": 51
+  },
+  {
+   "no": 1807,
+   "rate": "s20",
+   "name": "LB／スマスロサンダーVHA",
+   "col": 5,
+   "row": 52
+  },
+  {
+   "no": 1808,
+   "rate": "s20",
+   "name": "Lうみねこのなく頃に2A1",
+   "col": 5,
+   "row": 53
+  },
+  {
+   "no": 1810,
+   "rate": "s20",
+   "name": "LB／シェイクボーナストリガー／A1",
+   "col": 5,
+   "row": 54
+  },
+  {
+   "no": 1811,
+   "rate": "s20",
+   "name": "Lうみねこのなく頃に2A1",
+   "col": 5,
+   "row": 55
+  },
+  {
+   "no": 1812,
+   "rate": "s20",
+   "name": "LBケロット5ND05H",
+   "col": 5,
+   "row": 56
+  },
+  {
+   "no": 1813,
+   "rate": "s20",
+   "name": "LB／クレアの秘宝伝ボーナストリガーVER．／A2",
+   "col": 5,
+   "row": 57
+  },
+  {
+   "no": 1815,
+   "rate": "s20",
+   "name": "L／ハナビ／KM",
+   "col": 5,
+   "row": 58
+  },
+  {
+   "no": 1816,
+   "rate": "s20",
+   "name": "L／スマスロ秘宝伝／PA7",
+   "col": 5,
+   "row": 59
+  },
+  {
+   "no": 1817,
+   "rate": "s20",
+   "name": "LB 異世界かるてっと KR",
+   "col": 5,
+   "row": 60
+  },
+  {
+   "no": 1818,
+   "rate": "s20",
+   "name": "LB／クレアの秘宝伝ボーナストリガーVER．／A2",
+   "col": 5,
+   "row": 61
+  },
+  {
+   "no": 1820,
+   "rate": "s20",
+   "name": "LレヴュースタァライトCX",
+   "col": 5,
+   "row": 62
+  },
+  {
+   "no": 1821,
+   "rate": "s20",
+   "name": "LB／スマスロサンダーVHA",
+   "col": 5,
+   "row": 63
+  },
+  {
+   "no": 1822,
+   "rate": "s20",
+   "name": "LB不二子M2",
+   "col": 5,
+   "row": 64
+  },
+  {
+   "no": 2001,
+   "rate": "p1",
+   "name": "eフィーバーバスタードG",
+   "col": 9,
+   "row": 5
+  },
+  {
+   "no": 2002,
+   "rate": "p1",
+   "name": "eフィーバーからくりサーカス2R",
+   "col": 10,
+   "row": 5
+  },
+  {
+   "no": 2003,
+   "rate": "p1",
+   "name": "eフィーバーブルーロックMZ",
+   "col": 11,
+   "row": 5
+  },
+  {
+   "no": 2005,
+   "rate": "p1",
+   "name": "eフィーバー炎炎ノ消防隊2MS",
+   "col": 12,
+   "row": 5
+  },
+  {
+   "no": 2006,
+   "rate": "p1",
+   "name": "e東京リベンジャーズ聖夜決戦編EREC",
+   "col": 13,
+   "row": 5
+  },
+  {
+   "no": 2007,
+   "rate": "p1",
+   "name": "e魔法少女リリカルなのはHTEZ2",
+   "col": 14,
+   "row": 5
+  },
+  {
+   "no": 2008,
+   "rate": "p1",
+   "name": "eリコリス・リコイルM3",
+   "col": 15,
+   "row": 5
+  },
+  {
+   "no": 2010,
+   "rate": "p1",
+   "name": "eライザのアトリエK3",
+   "col": 16,
+   "row": 5
+  },
+  {
+   "no": 2011,
+   "rate": "p1",
+   "name": "e化物語2GSED",
+   "col": 17,
+   "row": 5
+  },
+  {
+   "no": 2012,
+   "rate": "p1",
+   "name": "e／吉宗極乗3000ver／L06",
+   "col": 18,
+   "row": 5
+  },
+  {
+   "no": 2013,
+   "rate": "p1",
+   "name": "e真北斗無双5夢幻闘双SCEA",
+   "col": 19,
+   "row": 5
+  },
+  {
+   "no": 2015,
+   "rate": "p1",
+   "name": "eアズールレーンTHE ANIMATION2K6",
+   "col": 20,
+   "row": 5
+  },
+  {
+   "no": 2016,
+   "rate": "p1",
+   "name": "e甲鉄城のカバネリ2GFEA",
+   "col": 21,
+   "row": 5
+  },
+  {
+   "no": 2017,
+   "rate": "p1",
+   "name": "e東京リベンジャーズGFEC",
+   "col": 22,
+   "row": 5
+  },
+  {
+   "no": 2018,
+   "rate": "p1",
+   "name": "e北斗の拳11暴凶星SHEF",
+   "col": 23,
+   "row": 5
+  },
+  {
+   "no": 2020,
+   "rate": "p1",
+   "name": "ｅフィーバーキン肉マン",
+   "col": 24,
+   "row": 5
+  },
+  {
+   "no": 2021,
+   "rate": "p1",
+   "name": "ｅフィーバーキン肉マン",
+   "col": 25,
+   "row": 5
+  },
+  {
+   "no": 2022,
+   "rate": "p1",
+   "name": "ｅフィーバーキン肉マン",
+   "col": 26,
+   "row": 5
+  },
+  {
+   "no": 2023,
+   "rate": "p1",
+   "name": "e新世紀エヴァンゲリオン17 はじまりの記憶R",
+   "col": 27,
+   "row": 5
+  },
+  {
+   "no": 2025,
+   "rate": "p1",
+   "name": "e新世紀エヴァンゲリオン17 はじまりの記憶R",
+   "col": 28,
+   "row": 5
+  },
+  {
+   "no": 2026,
+   "rate": "p1",
+   "name": "e東京喰種W",
+   "col": 28,
+   "row": 9
+  },
+  {
+   "no": 2027,
+   "rate": "p1",
+   "name": "e東京喰種W",
+   "col": 27,
+   "row": 9
+  },
+  {
+   "no": 2028,
+   "rate": "p1",
+   "name": "e東京喰種W",
+   "col": 26,
+   "row": 9
+  },
+  {
+   "no": 2030,
+   "rate": "p1",
+   "name": "eルパン三世VSキャッツアイMAH4",
+   "col": 25,
+   "row": 9
+  },
+  {
+   "no": 2031,
+   "rate": "p1",
+   "name": "e／押忍番長漢の頂／L09",
+   "col": 24,
+   "row": 9
+  },
+  {
+   "no": 2032,
+   "rate": "p1",
+   "name": "eラグナドールCMB",
+   "col": 23,
+   "row": 9
+  },
+  {
+   "no": 2033,
+   "rate": "p1",
+   "name": "e真北斗無双5SFEE",
+   "col": 22,
+   "row": 9
+  },
+  {
+   "no": 2035,
+   "rate": "p1",
+   "name": "e黄門ちゃま9HC3",
+   "col": 21,
+   "row": 9
+  },
+  {
+   "no": 2036,
+   "rate": "p1",
+   "name": "eいせれべFSZ",
+   "col": 20,
+   "row": 9
+  },
+  {
+   "no": 2037,
+   "rate": "p1",
+   "name": "eフィーバー彼女、お借りしますH",
+   "col": 19,
+   "row": 9
+  },
+  {
+   "no": 2038,
+   "rate": "p1",
+   "name": "e花の慶次～傾奇一転H6",
+   "col": 18,
+   "row": 9
+  },
+  {
+   "no": 2050,
+   "rate": "p1",
+   "name": "e女神のカフェテラスJLZ",
+   "col": 17,
+   "row": 9
+  },
+  {
+   "no": 2051,
+   "rate": "p1",
+   "name": "e盾の勇者の成り上がりEREF",
+   "col": 16,
+   "row": 9
+  },
+  {
+   "no": 2052,
+   "rate": "p1",
+   "name": "eガールズ＆パンツァー3LBH7",
+   "col": 15,
+   "row": 9
+  },
+  {
+   "no": 2053,
+   "rate": "p1",
+   "name": "eソードアート・オンライン～閃光の軌跡～K7",
+   "col": 14,
+   "row": 9
+  },
+  {
+   "no": 2055,
+   "rate": "p1",
+   "name": "e／ワールドダイスター／L04",
+   "col": 13,
+   "row": 9
+  },
+  {
+   "no": 2056,
+   "rate": "p1",
+   "name": "e牙狼神速神撃3000LT－RB",
+   "col": 12,
+   "row": 9
+  },
+  {
+   "no": 2057,
+   "rate": "p1",
+   "name": "eフィーバーもののがたりF",
+   "col": 11,
+   "row": 9
+  },
+  {
+   "no": 2058,
+   "rate": "p1",
+   "name": "eソードアート・オンライン～閃光の軌跡～99Ver．K1",
+   "col": 10,
+   "row": 9
+  },
+  {
+   "no": 2060,
+   "rate": "p1",
+   "name": "eギンパラVIVAFESTAHTA2",
+   "col": 9,
+   "row": 9
+  },
+  {
+   "no": 2061,
+   "rate": "s5",
+   "name": "L革命機ヴァルヴレイヴD",
+   "col": 6,
+   "row": 40
+  },
+  {
+   "no": 2062,
+   "rate": "s5",
+   "name": "L革命機ヴァルヴレイヴ2jF",
+   "col": 6,
+   "row": 39
+  },
+  {
+   "no": 2063,
+   "rate": "s5",
+   "name": "L革命機ヴァルヴレイヴ2jF",
+   "col": 6,
+   "row": 38
+  },
+  {
+   "no": 2065,
+   "rate": "s5",
+   "name": "L／ミリオンゴッド／CX",
+   "col": 6,
+   "row": 37
+  },
+  {
+   "no": 2066,
+   "rate": "s5",
+   "name": "L／ミリオンゴッド／CX",
+   "col": 6,
+   "row": 36
+  },
+  {
+   "no": 2067,
+   "rate": "s5",
+   "name": "LバイオハザードRE：3 ZD",
+   "col": 6,
+   "row": 33
+  },
+  {
+   "no": 2068,
+   "rate": "s5",
+   "name": "LバイオハザードRE：3 ZD",
+   "col": 6,
+   "row": 32
+  },
+  {
+   "no": 2070,
+   "rate": "s5",
+   "name": "L銭形5L2",
+   "col": 6,
+   "row": 31
+  },
+  {
+   "no": 2071,
+   "rate": "s5",
+   "name": "LパチスロヨルムンガンドND01G",
+   "col": 6,
+   "row": 30
+  },
+  {
+   "no": 2072,
+   "rate": "s5",
+   "name": "L東京喰種CT",
+   "col": 6,
+   "row": 29
+  },
+  {
+   "no": 2073,
+   "rate": "s5",
+   "name": "Lパチスロスーパーリオエース2ND02H",
+   "col": 6,
+   "row": 28
+  },
+  {
+   "no": 2075,
+   "rate": "s5",
+   "name": "Lパチスロ鉄拳6YD01H",
+   "col": 6,
+   "row": 27
+  },
+  {
+   "no": 2076,
+   "rate": "s5",
+   "name": "LアズールレーンTHE ANIMATION KN",
+   "col": 6,
+   "row": 26
+  },
+  {
+   "no": 2077,
+   "rate": "s5",
+   "name": "LアズールレーンTHE ANIMATION KN",
+   "col": 6,
+   "row": 25
+  },
+  {
+   "no": 2078,
+   "rate": "s5",
+   "name": "L スマスロ北斗の拳 転生の章2 MW",
+   "col": 6,
+   "row": 22
+  },
+  {
+   "no": 2080,
+   "rate": "s5",
+   "name": "L スマスロ北斗の拳 転生の章2 MW",
+   "col": 6,
+   "row": 21
+  },
+  {
+   "no": 2081,
+   "rate": "s5",
+   "name": "L／ハナビ／KM",
+   "col": 5,
+   "row": 21
+  },
+  {
+   "no": 2082,
+   "rate": "s5",
+   "name": "LB／スマスロサンダーVHA",
+   "col": 5,
+   "row": 22
+  },
+  {
+   "no": 2083,
+   "rate": "s5",
+   "name": "L機動戦士ガンダムユニコーン2jA",
+   "col": 5,
+   "row": 23
+  },
+  {
+   "no": 2085,
+   "rate": "s5",
+   "name": "LスーパーブラックジャックSLDC",
+   "col": 5,
+   "row": 24
+  },
+  {
+   "no": 2086,
+   "rate": "s5",
+   "name": "LパチスロゴッドイーターリザレクションSLED",
+   "col": 5,
+   "row": 25
+  },
+  {
+   "no": 2087,
+   "rate": "s5",
+   "name": "LパチスロゴッドイーターリザレクションSLED",
+   "col": 5,
+   "row": 26
+  },
+  {
+   "no": 2088,
+   "rate": "s5",
+   "name": "LからくりサーカスG",
+   "col": 5,
+   "row": 27
+  },
+  {
+   "no": 2100,
+   "rate": "s5",
+   "name": "LからくりサーカスG",
+   "col": 5,
+   "row": 28
+  },
+  {
+   "no": 2101,
+   "rate": "s5",
+   "name": "LバーディーウイングBC",
+   "col": 5,
+   "row": 29
+  },
+  {
+   "no": 2102,
+   "rate": "s5",
+   "name": "L／いざ番長／SB8",
+   "col": 5,
+   "row": 30
+  },
+  {
+   "no": 2103,
+   "rate": "s5",
+   "name": "L／いざ番長／SB8",
+   "col": 5,
+   "row": 31
+  },
+  {
+   "no": 2105,
+   "rate": "s5",
+   "name": "Lかぐや様は告らせたいjA",
+   "col": 5,
+   "row": 32
+  },
+  {
+   "no": 2106,
+   "rate": "s5",
+   "name": "L炎炎ノ消防隊jG",
+   "col": 5,
+   "row": 33
+  },
+  {
+   "no": 2107,
+   "rate": "s5",
+   "name": "L／バジリスク絆2～天膳～／ZN",
+   "col": 5,
+   "row": 34
+  },
+  {
+   "no": 2108,
+   "rate": "s5",
+   "name": "L スマスロ化物語 KH",
+   "col": 5,
+   "row": 35
+  },
+  {
+   "no": 2110,
+   "rate": "s5",
+   "name": "L パチスロ北斗の拳AD XR",
+   "col": 5,
+   "row": 36
+  },
+  {
+   "no": 2111,
+   "rate": "s5",
+   "name": "L パチスロ北斗の拳AD XR",
+   "col": 5,
+   "row": 37
+  },
+  {
+   "no": 2112,
+   "rate": "s5",
+   "name": "L パチスロ北斗の拳AD XR",
+   "col": 5,
+   "row": 38
+  },
+  {
+   "no": 2113,
+   "rate": "s5",
+   "name": "L新鬼武者3SA",
+   "col": 5,
+   "row": 39
+  },
+  {
+   "no": 2115,
+   "rate": "s5",
+   "name": "L新鬼武者3SA",
+   "col": 5,
+   "row": 40
+  },
+  {
+   "no": 2116,
+   "rate": "s5",
+   "name": "L スマスロ東京リベンジャーズ ZF",
+   "col": 2,
+   "row": 52
+  },
+  {
+   "no": 2117,
+   "rate": "s5",
+   "name": "L スマスロ東京リベンジャーズ ZF",
+   "col": 2,
+   "row": 51
+  },
+  {
+   "no": 2118,
+   "rate": "s5",
+   "name": "L／スマスロマギアレコード／RN",
+   "col": 2,
+   "row": 50
+  },
+  {
+   "no": 2120,
+   "rate": "s5",
+   "name": "Lからくりサーカス2jG",
+   "col": 2,
+   "row": 49
+  },
+  {
+   "no": 2121,
+   "rate": "s5",
+   "name": "L 甲鉄城のカバネリ 海門決戦 XX",
+   "col": 2,
+   "row": 48
+  },
+  {
+   "no": 2122,
+   "rate": "s5",
+   "name": "Lモンキーターン5CE",
+   "col": 2,
+   "row": 47
+  },
+  {
+   "no": 2123,
+   "rate": "s5",
+   "name": "Lモンキーターン5CE",
+   "col": 2,
+   "row": 46
+  },
+  {
+   "no": 2125,
+   "rate": "s5",
+   "name": "Lモンキーターン5CE",
+   "col": 2,
+   "row": 45
+  },
+  {
+   "no": 2126,
+   "rate": "s5",
+   "name": "Lモンキーターン5CE",
+   "col": 2,
+   "row": 39
+  },
+  {
+   "no": 2127,
+   "rate": "s5",
+   "name": "Lモンキーターン5CE",
+   "col": 2,
+   "row": 38
+  },
+  {
+   "no": 2128,
+   "rate": "s5",
+   "name": "Lモンキーターン5CE",
+   "col": 2,
+   "row": 37
+  },
+  {
+   "no": 2130,
+   "rate": "s5",
+   "name": "Lモンキーターン5CE",
+   "col": 2,
+   "row": 36
+  },
+  {
+   "no": 2131,
+   "rate": "s5",
+   "name": "Lモンキーターン5CE",
+   "col": 2,
+   "row": 35
+  },
+  {
+   "no": 2132,
+   "rate": "s5",
+   "name": "Lモンキーターン5CE",
+   "col": 2,
+   "row": 34
+  },
+  {
+   "no": 2133,
+   "rate": "s5",
+   "name": "Lモンキーターン5CE",
+   "col": 2,
+   "row": 33
+  },
+  {
+   "no": 2135,
+   "rate": "s5",
+   "name": "Lモンキーターン5CE",
+   "col": 2,
+   "row": 32
+  },
+  {
+   "no": 2136,
+   "rate": "s20",
+   "name": "Lドラゴンハナハナ～閃光～JP",
+   "col": 51,
+   "row": 70
+  },
+  {
+   "no": 2137,
+   "rate": "s20",
+   "name": "Lドラゴンハナハナ～閃光～JP",
+   "col": 50,
+   "row": 70
+  },
+  {
+   "no": 2138,
+   "rate": "s20",
+   "name": "LスターハナハナMX",
+   "col": 49,
+   "row": 70
+  },
+  {
+   "no": 2150,
+   "rate": "s20",
+   "name": "LスターハナハナMX",
+   "col": 48,
+   "row": 70
+  },
+  {
+   "no": 2151,
+   "rate": "s20",
+   "name": "LスターハナハナMX",
+   "col": 47,
+   "row": 70
+  },
+  {
+   "no": 2152,
+   "rate": "s20",
+   "name": "LスターハナハナMX",
+   "col": 46,
+   "row": 70
+  },
+  {
+   "no": 2200,
+   "rate": "s20",
+   "name": "L東京喰種CT",
+   "col": 42,
+   "row": 73
+  },
+  {
+   "no": 2201,
+   "rate": "s20",
+   "name": "L東京喰種CT",
+   "col": 42,
+   "row": 74
+  },
+  {
+   "no": 2202,
+   "rate": "s20",
+   "name": "L東京喰種CT",
+   "col": 42,
+   "row": 75
+  },
+  {
+   "no": 2203,
+   "rate": "s20",
+   "name": "L東京喰種CT",
+   "col": 42,
+   "row": 76
+  },
+  {
+   "no": 2205,
+   "rate": "s20",
+   "name": "L東京喰種CT",
+   "col": 42,
+   "row": 77
+  },
+  {
+   "no": 2206,
+   "rate": "s20",
+   "name": "L東京喰種CT",
+   "col": 42,
+   "row": 78
+  },
+  {
+   "no": 2207,
+   "rate": "s20",
+   "name": "L東京喰種CT",
+   "col": 42,
+   "row": 79
+  },
+  {
+   "no": 2208,
+   "rate": "s20",
+   "name": "L東京喰種CT",
+   "col": 37,
+   "row": 83
+  },
+  {
+   "no": 2210,
+   "rate": "s20",
+   "name": "L東京喰種CT",
+   "col": 36,
+   "row": 83
+  },
+  {
+   "no": 2211,
+   "rate": "s20",
+   "name": "L東京喰種CT",
+   "col": 35,
+   "row": 83
+  },
+  {
+   "no": 2212,
+   "rate": "s20",
+   "name": "L東京喰種CT",
+   "col": 34,
+   "row": 83
+  },
+  {
+   "no": 2213,
+   "rate": "s20",
+   "name": "L革命機ヴァルヴレイヴ2jF",
+   "col": 33,
+   "row": 83
+  },
+  {
+   "no": 2215,
+   "rate": "s20",
+   "name": "L革命機ヴァルヴレイヴ2jF",
+   "col": 32,
+   "row": 83
+  },
+  {
+   "no": 2216,
+   "rate": "s20",
+   "name": "L革命機ヴァルヴレイヴ2jF",
+   "col": 31,
+   "row": 83
+  },
+  {
+   "no": 2217,
+   "rate": "s20",
+   "name": "L革命機ヴァルヴレイヴ2jF",
+   "col": 30,
+   "row": 83
+  },
+  {
+   "no": 2218,
+   "rate": "s20",
+   "name": "L革命機ヴァルヴレイヴD",
+   "col": 29,
+   "row": 83
+  },
+  {
+   "no": 2220,
+   "rate": "s20",
+   "name": "L革命機ヴァルヴレイヴD",
+   "col": 28,
+   "row": 83
+  },
+  {
+   "no": 2221,
+   "rate": "s20",
+   "name": "L革命機ヴァルヴレイヴD",
+   "col": 27,
+   "row": 83
+  },
+  {
+   "no": 2222,
+   "rate": "s20",
+   "name": "L革命機ヴァルヴレイヴD",
+   "col": 26,
+   "row": 83
+  },
+  {
+   "no": 2223,
+   "rate": "s20",
+   "name": "L／ミリオンゴッド／CX",
+   "col": 22,
+   "row": 80
+  },
+  {
+   "no": 2225,
+   "rate": "s20",
+   "name": "L／ミリオンゴッド／CX",
+   "col": 22,
+   "row": 79
+  },
+  {
+   "no": 2226,
+   "rate": "s20",
+   "name": "L／ミリオンゴッド／CX",
+   "col": 22,
+   "row": 78
+  },
+  {
+   "no": 2227,
+   "rate": "s20",
+   "name": "L／ミリオンゴッド／CX",
+   "col": 22,
+   "row": 77
+  },
+  {
+   "no": 2228,
+   "rate": "s20",
+   "name": "L／ミリオンゴッド／CX",
+   "col": 22,
+   "row": 76
+  },
+  {
+   "no": 2230,
+   "rate": "s20",
+   "name": "L／ミリオンゴッド／CX",
+   "col": 22,
+   "row": 75
+  },
+  {
+   "no": 2231,
+   "rate": "s20",
+   "name": "L／ミリオンゴッド／CX",
+   "col": 22,
+   "row": 74
+  },
+  {
+   "no": 2232,
+   "rate": "s20",
+   "name": "L／ミリオンゴッド／CX",
+   "col": 22,
+   "row": 73
+  },
+  {
+   "no": 2233,
+   "rate": "s20",
+   "name": "L／ミリオンゴッド／CX",
+   "col": 22,
+   "row": 72
+  },
+  {
+   "no": 2235,
+   "rate": "s20",
+   "name": "L東京喰種CT",
+   "col": 39,
+   "row": 75
+  },
+  {
+   "no": 2236,
+   "rate": "s20",
+   "name": "L東京喰種CT",
+   "col": 39,
+   "row": 76
+  },
+  {
+   "no": 2237,
+   "rate": "s20",
+   "name": "L東京喰種CT",
+   "col": 39,
+   "row": 77
+  },
+  {
+   "no": 2238,
+   "rate": "s20",
+   "name": "L東京喰種CT",
+   "col": 39,
+   "row": 78
+  },
+  {
+   "no": 2250,
+   "rate": "s20",
+   "name": "L東京喰種CT",
+   "col": 39,
+   "row": 79
+  },
+  {
+   "no": 2251,
+   "rate": "s20",
+   "name": "L東京喰種CT",
+   "col": 38,
+   "row": 80
+  },
+  {
+   "no": 2252,
+   "rate": "s20",
+   "name": "L東京喰種CT",
+   "col": 37,
+   "row": 80
+  },
+  {
+   "no": 2253,
+   "rate": "s20",
+   "name": "L東京喰種CT",
+   "col": 36,
+   "row": 80
+  },
+  {
+   "no": 2255,
+   "rate": "s20",
+   "name": "L東京喰種CT",
+   "col": 35,
+   "row": 80
+  },
+  {
+   "no": 2256,
+   "rate": "s20",
+   "name": "L東京喰種CT",
+   "col": 34,
+   "row": 80
+  },
+  {
+   "no": 2257,
+   "rate": "s20",
+   "name": "L東京喰種CT",
+   "col": 33,
+   "row": 80
+  },
+  {
+   "no": 2258,
+   "rate": "s20",
+   "name": "L東京喰種CT",
+   "col": 32,
+   "row": 80
+  },
+  {
+   "no": 2260,
+   "rate": "s20",
+   "name": "Lからくりサーカス2jG",
+   "col": 31,
+   "row": 77
+  },
+  {
+   "no": 2261,
+   "rate": "s20",
+   "name": "Lからくりサーカス2jG",
+   "col": 32,
+   "row": 77
+  },
+  {
+   "no": 2262,
+   "rate": "s20",
+   "name": "Lからくりサーカス2jG",
+   "col": 33,
+   "row": 77
+  },
+  {
+   "no": 2263,
+   "rate": "s20",
+   "name": "Lからくりサーカス2jG",
+   "col": 34,
+   "row": 77
+  },
+  {
+   "no": 2265,
+   "rate": "s20",
+   "name": "Lからくりサーカス2jG",
+   "col": 35,
+   "row": 77
+  },
+  {
+   "no": 2266,
+   "rate": "s20",
+   "name": "Lからくりサーカス2jG",
+   "col": 37,
+   "row": 76
+  },
+  {
+   "no": 2267,
+   "rate": "s20",
+   "name": "Lからくりサーカス2jG",
+   "col": 37,
+   "row": 75
+  },
+  {
+   "no": 2268,
+   "rate": "s20",
+   "name": "Lからくりサーカス2jG",
+   "col": 37,
+   "row": 74
+  },
+  {
+   "no": 2270,
+   "rate": "s20",
+   "name": "Lからくりサーカス2jG",
+   "col": 37,
+   "row": 73
+  },
+  {
+   "no": 2271,
+   "rate": "s20",
+   "name": "Lからくりサーカス2jG",
+   "col": 37,
+   "row": 72
+  },
+  {
+   "no": 2272,
+   "rate": "s20",
+   "name": "Lからくりサーカス2jG",
+   "col": 33,
+   "row": 74
+  },
+  {
+   "no": 2273,
+   "rate": "s20",
+   "name": "Lからくりサーカス2jG",
+   "col": 32,
+   "row": 74
+  },
+  {
+   "no": 2275,
+   "rate": "s20",
+   "name": "Lからくりサーカス2jG",
+   "col": 31,
+   "row": 74
+  },
+  {
+   "no": 2276,
+   "rate": "s20",
+   "name": "Lからくりサーカス2jG",
+   "col": 30,
+   "row": 74
+  },
+  {
+   "no": 2277,
+   "rate": "s20",
+   "name": "Lからくりサーカス2jG",
+   "col": 29,
+   "row": 74
+  },
+  {
+   "no": 2278,
+   "rate": "s20",
+   "name": "Lからくりサーカス2jG",
+   "col": 28,
+   "row": 76
+  },
+  {
+   "no": 2280,
+   "rate": "s20",
+   "name": "Lからくりサーカス2jG",
+   "col": 28,
+   "row": 77
+  },
+  {
+   "no": 2281,
+   "rate": "s20",
+   "name": "Lからくりサーカス2jG",
+   "col": 28,
+   "row": 78
+  },
+  {
+   "no": 2282,
+   "rate": "s20",
+   "name": "Lからくりサーカス2jG",
+   "col": 28,
+   "row": 79
+  },
+  {
+   "no": 2283,
+   "rate": "s20",
+   "name": "L／ミリオンゴッド／CX",
+   "col": 26,
+   "row": 75
+  },
+  {
+   "no": 2285,
+   "rate": "s20",
+   "name": "L／ミリオンゴッド／CX",
+   "col": 26,
+   "row": 74
+  },
+  {
+   "no": 2286,
+   "rate": "s20",
+   "name": "L／ミリオンゴッド／CX",
+   "col": 26,
+   "row": 73
+  },
+  {
+   "no": 2287,
+   "rate": "s20",
+   "name": "L／ミリオンゴッド／CX",
+   "col": 27,
+   "row": 72
+  },
+  {
+   "no": 2288,
+   "rate": "s20",
+   "name": "L／ミリオンゴッド／CX",
+   "col": 28,
+   "row": 72
+  },
+  {
+   "no": 2300,
+   "rate": "s20",
+   "name": "L／ミリオンゴッド／CX",
+   "col": 29,
+   "row": 72
+  },
+  {
+   "no": 2301,
+   "rate": "s20",
+   "name": "L／ミリオンゴッド／CX",
+   "col": 30,
+   "row": 72
+  },
+  {
+   "no": 2302,
+   "rate": "s20",
+   "name": "L／ミリオンゴッド／CX",
+   "col": 31,
+   "row": 72
+  },
+  {
+   "no": 2303,
+   "rate": "s20",
+   "name": "L／ミリオンゴッド／CX",
+   "col": 32,
+   "row": 72
+  }
+ ],
+ "facilities": [
+  {
+   "type": "entrance",
+   "label": "出入口",
+   "col": 5,
+   "row": 71,
+   "w": 4,
+   "h": 4,
+   "color": "#88a0c0"
+  },
+  {
+   "type": "entrance",
+   "label": "出入口",
+   "col": 55,
+   "row": 8,
+   "w": 4,
+   "h": 4,
+   "color": "#88a0c0"
+  },
+  {
+   "type": "entrance",
+   "label": "出入口",
+   "col": 5,
+   "row": 9,
+   "w": 4,
+   "h": 4,
+   "color": "#88a0c0"
+  },
+  {
+   "type": "toilet_m",
+   "label": "男性",
+   "col": 46,
+   "row": 75,
+   "w": 5,
+   "h": 6
+  },
+  {
+   "type": "toilet_m",
+   "label": "男性",
+   "col": 27,
+   "row": 1,
+   "w": 3,
+   "h": 3
+  },
+  {
+   "type": "toilet_w",
+   "label": "女性",
+   "col": 18,
+   "row": 75,
+   "w": 5,
+   "h": 6
+  },
+  {
+   "type": "toilet_w",
+   "label": "女性",
+   "col": 34,
+   "row": 1,
+   "w": 3,
+   "h": 3
+  },
+  {
+   "type": "elevator",
+   "label": "EV・A",
+   "col": 5,
+   "row": 75,
+   "w": 4,
+   "h": 4,
+   "color": "#88a0c0"
+  },
+  {
+   "type": "settle",
+   "label": "精算機",
+   "col": 50,
+   "row": 7,
+   "w": 2,
+   "h": 3
+  },
+  {
+   "type": "rest",
+   "label": "休憩所",
+   "col": 18,
+   "row": 4,
+   "w": 19,
+   "h": 2
+  },
+  {
+   "type": "counter",
+   "label": "カウンター",
+   "col": 40,
+   "row": 7,
+   "w": 17,
+   "h": 3
+  },
+  {
+   "type": "elevator",
+   "label": "EV・B",
+   "col": 5,
+   "row": 5,
+   "w": 4,
+   "h": 4,
+   "color": "#88a0c0"
+  },
+  {
+   "type": "elevator",
+   "label": "EV・C",
+   "col": 55,
+   "row": 12,
+   "w": 4,
+   "h": 4,
+   "color": "#88a0c0"
+  },
+  {
+   "type": "blank",
+   "label": "女性用休憩所",
+   "col": 12,
+   "row": 74,
+   "w": 6,
+   "h": 7,
+   "color": "#dd5fd3"
+  },
+  {
+   "type": "entrance",
+   "label": "出入口",
+   "col": 55,
+   "row": 68,
+   "w": 4,
+   "h": 4
+  },
+  {
+   "type": "blank",
+   "label": "喫煙所",
+   "col": 55,
+   "row": 72,
+   "w": 4,
+   "h": 4,
+   "color": "#585858"
+  },
+  {
+   "type": "blank",
+   "label": "喫煙所",
+   "col": 1,
+   "row": 65,
+   "w": 3,
+   "h": 3,
+   "color": "#585858"
+  },
+  {
+   "type": "blank",
+   "label": "喫煙所",
+   "col": 43,
+   "row": 3,
+   "w": 3,
+   "h": 3,
+   "color": "#585858"
+  },
+  {
+   "type": "blank",
+   "label": "喫煙所",
+   "col": 40,
+   "row": 3,
+   "w": 3,
+   "h": 3,
+   "color": "#585858"
+  },
+  {
+   "type": "blank",
+   "label": "喫煙所",
+   "col": 1,
+   "row": 14,
+   "w": 3,
+   "h": 3,
+   "color": "#585858"
+  }
+ ]
+};
+const VIEWER_B64="PCFET0NUWVBFIGh0bWw+CjxodG1sIGxhbmc9ImphIj48aGVhZD4KPG1ldGEgY2hhcnNldD0iVVRGLTgiPjxtZXRhIG5hbWU9InZpZXdwb3J0IiBjb250ZW50PSJ3aWR0aD1kZXZpY2Utd2lkdGgsaW5pdGlhbC1zY2FsZT0xLG1heGltdW0tc2NhbGU9MSx1c2VyLXNjYWxhYmxlPW5vIj4KPHRpdGxlPuODleODreOCouODnuODg+ODl++8iOODrOOCpOOCouOCpuODiERC54mI77yJPC90aXRsZT4KPHN0eWxlPgo6cm9vdHstLWJnOiMwZjE0MWI7LS1zZWw6IzE0MWEyMzstLXBhbmVsOiMxZDI1MzA7LS1wYW5lbC0yOiMyMzJjMzk7LS1saW5lOiMyYjM1NDM7LS10ZXh0OiNlZWYyZjc7LS1tdXRlZDojOTNhMGIzOy0tZ29sZDojZThiODRiO2ZvbnQtc3ludGhlc2lzOm5vbmV9Cip7Ym94LXNpemluZzpib3JkZXItYm94fWh0bWwsYm9keXttYXJnaW46MDtoZWlnaHQ6MTAwJTtvdmVyZmxvdzpoaWRkZW47b3ZlcnNjcm9sbC1iZWhhdmlvcjpub25lfQpib2R5e2JhY2tncm91bmQ6dmFyKC0tYmcpO2NvbG9yOnZhcigtLXRleHQpO2ZvbnQtZmFtaWx5Oi1hcHBsZS1zeXN0ZW0sQmxpbmtNYWNTeXN0ZW1Gb250LCJIaXJhZ2lubyBTYW5zIiwiTm90byBTYW5zIEpQIiwiWXUgR290aGljIFVJIixNZWlyeW8sc2Fucy1zZXJpZjstd2Via2l0LWZvbnQtc21vb3RoaW5nOmFudGlhbGlhc2VkfQoubnVte2ZvbnQtdmFyaWFudC1udW1lcmljOnRhYnVsYXItbnVtc30KLnNjcmVlbntwb3NpdGlvbjpmaXhlZDtpbnNldDowO2Rpc3BsYXk6ZmxleDtmbGV4LWRpcmVjdGlvbjpjb2x1bW47dHJhbnNpdGlvbjp0cmFuc2Zvcm0gLjNzIGN1YmljLWJlemllciguMTYsLjg0LC40NCwxKTtiYWNrZ3JvdW5kOnZhcigtLWJnKX0KI3NjcmVlbk1hcHt0cmFuc2Zvcm06dHJhbnNsYXRlWCgxMDAlKTstLW1hcGJnOiMwZjE0MWJ9I3NjcmVlbk1hcC5vbnt0cmFuc2Zvcm06dHJhbnNsYXRlWCgwKX0jc2NyZWVuTWFwLmxpZ2h0Ymd7LS1tYXBiZzojZmZmZmZmfQojc2NyZWVuU2VsZWN0e2JhY2tncm91bmQ6dmFyKC0tc2VsKX0KLnMtaGVhZHtwYWRkaW5nOjE2cHggMThweCA2cHh9Ci5icmFuZC1yb3d7ZGlzcGxheTpmbGV4O2FsaWduLWl0ZW1zOmNlbnRlcjtqdXN0aWZ5LWNvbnRlbnQ6c3BhY2UtYmV0d2VlbjtnYXA6MTBweH0KLnMtaGVhZCAuYnJhbmR7ZGlzcGxheTppbmxpbmUtZmxleDthbGlnbi1pdGVtczpiYXNlbGluZTtnYXA6OXB4O2N1cnNvcjpkZWZhdWx0O2JvcmRlcjpub25lO2JhY2tncm91bmQ6bm9uZTtwYWRkaW5nOjB9Ci50b3AtYnRue2ZsZXg6bm9uZTtiYWNrZ3JvdW5kOnZhcigtLWdvbGQpO2JvcmRlcjpub25lO2NvbG9yOiMxMDEzMWE7Zm9udC1zaXplOjEzcHg7Zm9udC13ZWlnaHQ6ODAwO3BhZGRpbmc6OHB4IDE2cHg7Ym9yZGVyLXJhZGl1czo5OTlweDtjdXJzb3I6cG9pbnRlcjtsZXR0ZXItc3BhY2luZzouMDJlbX0KLnRvcC1idG46YWN0aXZle2ZpbHRlcjpicmlnaHRuZXNzKC45Mil9Ci50b3AtYnRuOmFjdGl2ZXtiYWNrZ3JvdW5kOnZhcigtLXBhbmVsKX0KLnMtaGVhZCAubWFya3tmb250LXdlaWdodDo4MDA7Zm9udC1zaXplOjIwcHg7Y29sb3I6dmFyKC0tZ29sZCk7bGV0dGVyLXNwYWNpbmc6LjA0ZW19LnMtaGVhZCAuc3Vie2ZvbnQtc2l6ZToxMXB4O2NvbG9yOnZhcigtLW11dGVkKTtsZXR0ZXItc3BhY2luZzouMTZlbX0KLnMtaGVhZCAuc3RvcmV7Zm9udC1zaXplOjEzcHg7Y29sb3I6dmFyKC0tdGV4dCk7bWFyZ2luLXRvcDo3cHg7Zm9udC13ZWlnaHQ6NjAwfQoucy1oZWFkIC5sZWFke2ZvbnQtc2l6ZToxMnB4O2NvbG9yOnZhcigtLW11dGVkKTttYXJnaW4tdG9wOjNweH0KLnMtYm9keXtmbGV4OjE7b3ZlcmZsb3cteTphdXRvO3BhZGRpbmc6NnB4IDE2cHggMjhweDstd2Via2l0LW92ZXJmbG93LXNjcm9sbGluZzp0b3VjaH0KLmxhYntmb250LXNpemU6MTNweDtmb250LXdlaWdodDo4MDA7bWFyZ2luOjE4cHggMnB4IDEwcHg7ZGlzcGxheTpmbGV4O2FsaWduLWl0ZW1zOmNlbnRlcjtnYXA6OHB4fQoubGFiIC5ue2Rpc3BsYXk6aW5saW5lLWZsZXg7YWxpZ24taXRlbXM6Y2VudGVyO2p1c3RpZnktY29udGVudDpjZW50ZXI7d2lkdGg6MjJweDtoZWlnaHQ6MjJweDtib3JkZXItcmFkaXVzOjUwJTtiYWNrZ3JvdW5kOnZhcigtLWdvbGQpO2NvbG9yOiMxMDEzMWE7Zm9udC1zaXplOjEzcHg7Zm9udC13ZWlnaHQ6ODAwfQoucmF0ZXN7ZGlzcGxheTpncmlkO2dyaWQtdGVtcGxhdGUtY29sdW1uczoxZnIgMWZyO2dhcDoxMXB4fQoucmJ0bntwb3NpdGlvbjpyZWxhdGl2ZTtwYWRkaW5nOjE4cHggMTZweDtib3JkZXItcmFkaXVzOjE1cHg7Ym9yZGVyOm5vbmU7Y3Vyc29yOnBvaW50ZXI7Y29sb3I6IzEwMTMxYTt0ZXh0LWFsaWduOmxlZnQ7Ym94LXNoYWRvdzowIDRweCAxNHB4IHJnYmEoMCwwLDAsLjM1KX0KLnJidG4gLnJse2ZvbnQtd2VpZ2h0OjgwMDtmb250LXNpemU6MjJweH0ucmJ0biAucmt7ZGlzcGxheTpibG9jaztmb250LXNpemU6MTJweDtmb250LXdlaWdodDo3MDA7b3BhY2l0eTouODU7bWFyZ2luLXRvcDoycHh9Ci5yYnRuIC5yY3twb3NpdGlvbjphYnNvbHV0ZTtyaWdodDoxNHB4O3RvcDo1MCU7dHJhbnNmb3JtOnRyYW5zbGF0ZVkoLTUwJSk7Zm9udC1zaXplOjEzcHg7Zm9udC13ZWlnaHQ6ODAwO2NvbG9yOiMxMDEzMWE7YmFja2dyb3VuZDojZmZmO3BhZGRpbmc6NXB4IDExcHg7Ym9yZGVyLXJhZGl1czo5OTlweDtib3gtc2hhZG93OjAgMXB4IDNweCByZ2JhKDAsMCwwLC4zNSl9Ci5yYnRuLnNlbHtvdXRsaW5lOjNweCBzb2xpZCAjZmZmO291dGxpbmUtb2Zmc2V0Oi0xcHh9Ci5way1maWx0ZXJ7d2lkdGg6MTAwJTtoZWlnaHQ6NDRweDtwYWRkaW5nOjAgMTRweDtiYWNrZ3JvdW5kOnZhcigtLXBhbmVsKTtib3JkZXI6MXB4IHNvbGlkIHZhcigtLWxpbmUpO2JvcmRlci1yYWRpdXM6MTFweDtjb2xvcjp2YXIoLS10ZXh0KTtmb250LXNpemU6MTZweDtvdXRsaW5lOm5vbmU7bWFyZ2luLWJvdHRvbToxMHB4fQoucGstZmlsdGVyOmZvY3Vze2JvcmRlci1jb2xvcjp2YXIoLS1nb2xkKX0KLm1yb3d7ZGlzcGxheTpmbGV4O2FsaWduLWl0ZW1zOmNlbnRlcjtnYXA6MTBweDtwYWRkaW5nOjE0cHggMTRweDtib3JkZXItcmFkaXVzOjEycHg7YmFja2dyb3VuZDp2YXIoLS1wYW5lbCk7bWFyZ2luLWJvdHRvbTo4cHg7Y3Vyc29yOnBvaW50ZXI7Ym9yZGVyOjFweCBzb2xpZCB0cmFuc3BhcmVudH0KLm1yb3c6YWN0aXZle2JhY2tncm91bmQ6dmFyKC0tcGFuZWwtMil9Lm1yb3cuc2Vse2JvcmRlci1jb2xvcjp2YXIoLS1nb2xkKX0KLm1yb3cgLnN3YXRjaHt3aWR0aDo4cHg7aGVpZ2h0OjMwcHg7Ym9yZGVyLXJhZGl1czo0cHg7ZmxleDpub25lfQoubXJvdyAubW57ZmxleDoxO2ZvbnQtc2l6ZToxNXB4O2ZvbnQtd2VpZ2h0OjYwMDtvdmVyZmxvdzpoaWRkZW47dGV4dC1vdmVyZmxvdzplbGxpcHNpczt3aGl0ZS1zcGFjZTpub3dyYXB9Ci5tcm93IC5tY3tmb250LXNpemU6MTNweDtjb2xvcjp2YXIoLS1tdXRlZCk7d2hpdGUtc3BhY2U6bm93cmFwfS5tcm93IC5jaGV2e2NvbG9yOnZhcigtLW11dGVkKTtmb250LXNpemU6MThweH0KLm5vc3tkaXNwbGF5OmZsZXg7ZmxleC13cmFwOndyYXA7Z2FwOjEwcHh9Ci5ub2NoaXB7bWluLXdpZHRoOjY0cHg7dGV4dC1hbGlnbjpjZW50ZXI7cGFkZGluZzoxNXB4IDEycHg7Ym9yZGVyLXJhZGl1czoxM3B4O2JhY2tncm91bmQ6dmFyKC0tcGFuZWwpO2JvcmRlcjoxLjVweCBzb2xpZCB2YXIoLS1saW5lKTtmb250LXdlaWdodDo4MDA7Zm9udC1zaXplOjE4cHg7Y3Vyc29yOnBvaW50ZXI7Y29sb3I6dmFyKC0tdGV4dCl9Ci5ub2NoaXA6YWN0aXZle2JhY2tncm91bmQ6dmFyKC0tZ29sZCk7Y29sb3I6IzEwMTMxYTtib3JkZXItY29sb3I6dmFyKC0tZ29sZCl9Ci5way1lbXB0eXtjb2xvcjp2YXIoLS1tdXRlZCk7Zm9udC1zaXplOjE0cHg7cGFkZGluZzoxMHB4IDJweH0uaGludHtmb250LXNpemU6MTJweDtjb2xvcjp2YXIoLS1tdXRlZCk7bWFyZ2luOjZweCAycHggMH0KLmFkbWlue21hcmdpbi10b3A6MjZweDtib3JkZXItdG9wOjFweCBzb2xpZCB2YXIoLS1saW5lKTtwYWRkaW5nLXRvcDoxNHB4fQouYWRtaW4gLmF0e2ZvbnQtc2l6ZToxMnB4O2ZvbnQtd2VpZ2h0OjgwMDtjb2xvcjp2YXIoLS1tdXRlZCk7bGV0dGVyLXNwYWNpbmc6LjA4ZW07bWFyZ2luLWJvdHRvbTo5cHh9Ci5hYnRue2Rpc3BsYXk6aW5saW5lLWZsZXg7YWxpZ24taXRlbXM6Y2VudGVyO2dhcDo3cHg7YmFja2dyb3VuZDp2YXIoLS1wYW5lbCk7Ym9yZGVyOjFweCBzb2xpZCB2YXIoLS1saW5lKTtjb2xvcjp2YXIoLS10ZXh0KTtoZWlnaHQ6NDJweDtwYWRkaW5nOjAgMTVweDtib3JkZXItcmFkaXVzOjExcHg7Zm9udC1zaXplOjE0cHg7Zm9udC13ZWlnaHQ6NzAwO2N1cnNvcjpwb2ludGVyO21hcmdpbjowIDhweCA4cHggMH0KLmFidG46YWN0aXZle2JhY2tncm91bmQ6dmFyKC0tcGFuZWwtMil9LmFidG4uZ29sZHtiYWNrZ3JvdW5kOnZhcigtLWdvbGQpO2NvbG9yOiMxMDEzMWE7Ym9yZGVyLWNvbG9yOnZhcigtLWdvbGQpfQouYW1zZ3tmb250LXNpemU6MTJweDtjb2xvcjp2YXIoLS1tdXRlZCk7bWFyZ2luLXRvcDo2cHg7bWluLWhlaWdodDoxNnB4O2xpbmUtaGVpZ2h0OjEuNX0KLm1hcC1oZWFke2Rpc3BsYXk6ZmxleDthbGlnbi1pdGVtczpjZW50ZXI7Z2FwOjEwcHg7cGFkZGluZzoxMHB4IDEycHg7Ym9yZGVyLWJvdHRvbToxcHggc29saWQgdmFyKC0tbGluZSk7YmFja2dyb3VuZDojMWIyMzJlO3otaW5kZXg6NX0KLmhvbWV7ZGlzcGxheTpmbGV4O2FsaWduLWl0ZW1zOmNlbnRlcjtnYXA6NnB4O2JhY2tncm91bmQ6dmFyKC0tZ29sZCk7Ym9yZGVyOm5vbmU7Y29sb3I6IzEwMTMxYTtoZWlnaHQ6NDBweDtwYWRkaW5nOjAgMTVweDtib3JkZXItcmFkaXVzOjExcHg7Zm9udC1zaXplOjE1cHg7Zm9udC13ZWlnaHQ6ODAwO2N1cnNvcjpwb2ludGVyO2ZsZXg6bm9uZTtsZXR0ZXItc3BhY2luZzouMDNlbX0KLm1oLWluZm97ZmxleDoxO21pbi13aWR0aDowO2Rpc3BsYXk6ZmxleDthbGlnbi1pdGVtczpjZW50ZXI7Z2FwOjhweDtvdmVyZmxvdzpoaWRkZW59Ci5yYXRlLXBpbGx7Zm9udC1zaXplOjEycHg7Zm9udC13ZWlnaHQ6ODAwO3BhZGRpbmc6NHB4IDEwcHg7Ym9yZGVyLXJhZGl1czo4cHg7Y29sb3I6IzEwMTMxYTt3aGl0ZS1zcGFjZTpub3dyYXA7ZmxleDpub25lfQoubWgtbmFtZXtmbGV4OjE7bWluLXdpZHRoOjA7Zm9udC1zaXplOjE0cHg7Zm9udC13ZWlnaHQ6NjAwO292ZXJmbG93OmhpZGRlbjt3aGl0ZS1zcGFjZTpub3dyYXB9Ci5taC1uYW1lIC5tcXRyYWNre2Rpc3BsYXk6aW5saW5lLWJsb2NrO3doaXRlLXNwYWNlOm5vd3JhcDt3aWxsLWNoYW5nZTp0cmFuc2Zvcm19Ci5taC1uYW1lIC5tcXRyYWNrPnNwYW57ZGlzcGxheTppbmxpbmUtYmxvY2s7cGFkZGluZy1yaWdodDo0NnB4fQpAa2V5ZnJhbWVzIG1xZmxvd3swJXt0cmFuc2Zvcm06dHJhbnNsYXRlWCgwKX0xMDAle3RyYW5zZm9ybTp0cmFuc2xhdGVYKC01MCUpfX0KLm1oLW5ve2ZvbnQtc2l6ZToxM3B4O2NvbG9yOnZhcigtLW11dGVkKTt3aGl0ZS1zcGFjZTpub3dyYXA7ZmxleDpub25lfQoubWgtc3BlY3tmbGV4Om5vbmU7dGV4dC1kZWNvcmF0aW9uOm5vbmU7YmFja2dyb3VuZDp2YXIoLS1wYW5lbCk7Ym9yZGVyOjFweCBzb2xpZCB2YXIoLS1saW5lKTtjb2xvcjp2YXIoLS10ZXh0KTtmb250LXdlaWdodDo4MDA7Zm9udC1zaXplOjEzcHg7cGFkZGluZzo5cHggMTNweDtib3JkZXItcmFkaXVzOjEwcHh9Cm1haW57ZmxleDoxO3Bvc2l0aW9uOnJlbGF0aXZlO292ZXJmbG93OmhpZGRlbjtiYWNrZ3JvdW5kOnZhcigtLW1hcGJnKX0KI3N0YWdle3Bvc2l0aW9uOmFic29sdXRlO2luc2V0OjA7b3ZlcmZsb3c6aGlkZGVuO2N1cnNvcjpncmFiO3RvdWNoLWFjdGlvbjpub25lOy13ZWJraXQtdXNlci1zZWxlY3Q6bm9uZTt1c2VyLXNlbGVjdDpub25lO2JhY2tncm91bmQ6dmFyKC0tbWFwYmcpfSNzdGFnZS5ncmFiYmluZ3tjdXJzb3I6Z3JhYmJpbmd9CiNtYXB3cmFwe3Bvc2l0aW9uOmFic29sdXRlO2xlZnQ6MDt0b3A6MDt0cmFuc2Zvcm0tb3JpZ2luOjAgMDt3aWxsLWNoYW5nZTp0cmFuc2Zvcm19CiNvdmVybGF5e3Bvc2l0aW9uOmFic29sdXRlO2xlZnQ6MDt0b3A6MDtvdmVyZmxvdzp2aXNpYmxlO2JhY2tncm91bmQ6dmFyKC0tbWFwYmcpfQoubWFjaGluZXtzdHJva2U6I2ZmZjtzdHJva2Utd2lkdGg6LjV9Ci5tYWNoaW5lLnRhcmdldHtzdHJva2U6IzEwMTMxYTtzdHJva2Utd2lkdGg6MS4yfQoubWFjaGluZS5taGx7c3Ryb2tlOiM3ZDg3OTQ7c3Ryb2tlLXdpZHRoOi43fQouaGwtYm94e2ZpbGw6bm9uZTtzdHJva2U6I2ZmY2UyZTtzdHJva2Utd2lkdGg6Mi40O3BhaW50LW9yZGVyOnN0cm9rZTtmaWx0ZXI6ZHJvcC1zaGFkb3coMCAwIDIuNXB4IHJnYmEoMjU1LDE5MCwyMCwuOTUpKX0KLmhsLXB1bHNle2ZpbGw6bm9uZTtzdHJva2U6I2ZmY2UyZTtzdHJva2Utd2lkdGg6MS42O29wYWNpdHk6Ljc1O3RyYW5zZm9ybS1ib3g6ZmlsbC1ib3g7dHJhbnNmb3JtLW9yaWdpbjpjZW50ZXI7YW5pbWF0aW9uOmhscCAxLjE1cyBlYXNlLW91dCBpbmZpbml0ZTtwb2ludGVyLWV2ZW50czpub25lfQpAa2V5ZnJhbWVzIGhscHswJXtvcGFjaXR5Oi43NTt0cmFuc2Zvcm06c2NhbGUoMSl9MTAwJXtvcGFjaXR5OjA7dHJhbnNmb3JtOnNjYWxlKDMuMil9fQouZmFjLWxhYmVse3RleHQtYW5jaG9yOm1pZGRsZTtmb250LXdlaWdodDo4MDA7cG9pbnRlci1ldmVudHM6bm9uZX0KLm5ldy1vdXRsaW5le3N0cm9rZTojMjJjNTVlO3N0cm9rZS13aWR0aDoxLjk7cG9pbnRlci1ldmVudHM6bm9uZX0KLm5ldy1sYWJ7Y29sb3I6IzIyYzU1ZX0KLm5vY2hpcHtwb3NpdGlvbjpyZWxhdGl2ZX0KLm5vY2hpcC5uZXc6OmFmdGVye2NvbnRlbnQ6Jyc7cG9zaXRpb246YWJzb2x1dGU7dG9wOjVweDtyaWdodDo2cHg7d2lkdGg6OHB4O2hlaWdodDo4cHg7Ym9yZGVyLXJhZGl1czo1MCU7YmFja2dyb3VuZDojMjJjNTVlO2JveC1zaGFkb3c6MCAwIDAgMnB4ICMxMDEzMWF9Ci56b29te3Bvc2l0aW9uOmFic29sdXRlO3JpZ2h0OjEycHg7Ym90dG9tOjE0cHg7ei1pbmRleDo2O2Rpc3BsYXk6ZmxleDtmbGV4LWRpcmVjdGlvbjpjb2x1bW47Z2FwOjFweDtiYWNrZ3JvdW5kOnZhcigtLWxpbmUpO2JvcmRlci1yYWRpdXM6MTFweDtvdmVyZmxvdzpoaWRkZW47Ym9yZGVyOjFweCBzb2xpZCB2YXIoLS1saW5lKX0KLnpvb20gYnV0dG9ue3dpZHRoOjQycHg7aGVpZ2h0OjQycHg7Ym9yZGVyOm5vbmU7YmFja2dyb3VuZDp2YXIoLS1wYW5lbCk7Y29sb3I6dmFyKC0tdGV4dCk7Zm9udC1zaXplOjE5cHg7ZGlzcGxheTpmbGV4O2FsaWduLWl0ZW1zOmNlbnRlcjtqdXN0aWZ5LWNvbnRlbnQ6Y2VudGVyO2N1cnNvcjpwb2ludGVyfQouem9vbSBidXR0b246YWN0aXZle2JhY2tncm91bmQ6dmFyKC0tZ29sZCk7Y29sb3I6IzEwMTMxYX0KLmhvbWUtZmFie3Bvc2l0aW9uOmFic29sdXRlO2xlZnQ6MTJweDtib3R0b206MTRweDt6LWluZGV4OjY7ZGlzcGxheTpmbGV4O2FsaWduLWl0ZW1zOmNlbnRlcjtnYXA6NnB4O2JhY2tncm91bmQ6dmFyKC0tZ29sZCk7Y29sb3I6IzEwMTMxYTtib3JkZXI6bm9uZTtib3JkZXItcmFkaXVzOjExcHg7aGVpZ2h0OjQycHg7cGFkZGluZzowIDE2cHg7Zm9udC13ZWlnaHQ6ODAwO2ZvbnQtc2l6ZToxNXB4O2N1cnNvcjpwb2ludGVyO2JveC1zaGFkb3c6MCA0cHggMTJweCByZ2JhKDAsMCwwLC40KX0KLm1hcmtlcntwb3NpdGlvbjphYnNvbHV0ZTt6LWluZGV4Ojc7dHJhbnNmb3JtOnRyYW5zbGF0ZSgtNTAlLC0xMDAlKTtwb2ludGVyLWV2ZW50czpub25lfQoubWFya2VyIC5waW57cG9zaXRpb246cmVsYXRpdmU7d2lkdGg6MzBweDtoZWlnaHQ6MzBweDtib3JkZXItcmFkaXVzOjUwJSA1MCUgNTAlIDA7YmFja2dyb3VuZDojMTAxMzFhO3RyYW5zZm9ybTpyb3RhdGUoLTQ1ZGVnKTtib3gtc2hhZG93OjAgMCAwIDVweCByZ2JhKDI1NSwyNTUsMjU1LC43KSwwIDAgMCA4cHggcmdiYSgxNiwxOSwyNiwuMzUpLDAgNnB4IDE2cHggcmdiYSgwLDAsMCwuNSk7bWFyZ2luOjAgYXV0b30KLm1hcmtlciAucGluOjphZnRlcntjb250ZW50OiIiO3Bvc2l0aW9uOmFic29sdXRlO2xlZnQ6NTAlO3RvcDo1MCU7d2lkdGg6MTJweDtoZWlnaHQ6MTJweDtib3JkZXItcmFkaXVzOjUwJTtiYWNrZ3JvdW5kOiNmZmY7dHJhbnNmb3JtOnRyYW5zbGF0ZSgtNTAlLC01MCUpfQoubWFya2VyIC5yaW5ne3Bvc2l0aW9uOmFic29sdXRlO2xlZnQ6NTAlO2JvdHRvbTotNHB4O3dpZHRoOjI0cHg7aGVpZ2h0OjI0cHg7Ym9yZGVyLXJhZGl1czo1MCU7YmFja2dyb3VuZDpyZ2JhKDE2LDE5LDI2LC40NSk7dHJhbnNmb3JtOnRyYW5zbGF0ZSgtNTAlLDApO2FuaW1hdGlvbjptcHVsc2UgMS4xcyBlYXNlLW91dCBpbmZpbml0ZX0KLm1hcmtlciAudGFne3Bvc2l0aW9uOmFic29sdXRlO2xlZnQ6NTAlO3RvcDotMzRweDt0cmFuc2Zvcm06dHJhbnNsYXRlWCgtNTAlKTtiYWNrZ3JvdW5kOiMxMDEzMWE7Y29sb3I6I2ZmZjtmb250LXdlaWdodDo4MDA7Zm9udC1zaXplOjE0cHg7cGFkZGluZzo0cHggMTFweDtib3JkZXItcmFkaXVzOjhweDt3aGl0ZS1zcGFjZTpub3dyYXA7Ym94LXNoYWRvdzowIDRweCAxMnB4IHJnYmEoMCwwLDAsLjYpfQpAa2V5ZnJhbWVzIG1wdWxzZXswJXtvcGFjaXR5Oi43O3RyYW5zZm9ybTp0cmFuc2xhdGUoLTUwJSwwKSBzY2FsZSguNSl9MTAwJXtvcGFjaXR5OjA7dHJhbnNmb3JtOnRyYW5zbGF0ZSgtNTAlLDApIHNjYWxlKDMuOCl9fQpAbWVkaWEgKHByZWZlcnMtcmVkdWNlZC1tb3Rpb246cmVkdWNlKXsubWFya2VyIC5yaW5ne2FuaW1hdGlvbjpub25lO29wYWNpdHk6LjV9LnNjcmVlbnt0cmFuc2l0aW9uOm5vbmV9fQo8L3N0eWxlPjwvaGVhZD48Ym9keT4KCjxzZWN0aW9uIGlkPSJzY3JlZW5TZWxlY3QiIGNsYXNzPSJzY3JlZW4iPgogPGRpdiBjbGFzcz0icy1oZWFkIj48ZGl2IGNsYXNzPSJicmFuZC1yb3ciPjxidXR0b24gY2xhc3M9ImJyYW5kIiBpZD0iYnJhbmRUb3AiPjxzcGFuIGNsYXNzPSJtYXJrIj7jg5Xjg63jgqLjg57jg4Pjg5c8L3NwYW4+PHNwYW4gY2xhc3M9InN1YiI+5Y+w44KS5o6i44GZPC9zcGFuPjwvYnV0dG9uPgogIDxidXR0b24gY2xhc3M9InRvcC1idG4iIGlkPSJ0b3BCdG4iPuODiOODg+ODlzwvYnV0dG9uPjwvZGl2PgogIDxkaXYgY2xhc3M9InN0b3JlIiBpZD0ic3RvcmVOYW1lIj48L2Rpdj4KICA8ZGl2IGNsYXNzPSJsZWFkIj7jg6zjg7zjg4gg4oaSIOapn+eoriDihpIg5Y+w55Wq5Y+3IOOBrumghuOBq+mBuOOBtuOBqOOAgeODnuODg+ODl+OBp+WFieOBo+OBpuahiOWGheOBl+OBvuOBmTwvZGl2PjwvZGl2PgogPGRpdiBjbGFzcz0icy1ib2R5IiBpZD0ic2VsQm9keSI+CiAgPGRpdiBjbGFzcz0ibGFiIG5ldy1sYWIiIGlkPSJuZXdMYWIiIGhpZGRlbj48c3BhbiBjbGFzcz0ibiIgc3R5bGU9ImJhY2tncm91bmQ6IzIyYzU1ZSI+TkVXPC9zcGFuPuaWsOWPsOaDheWgsTwvZGl2PjxkaXYgY2xhc3M9InJhdGVzIiBpZD0icGtSYXRlc05ldyI+PC9kaXY+CiAgPGRpdiBjbGFzcz0ibGFiIj48c3BhbiBjbGFzcz0ibiI+MTwvc3Bhbj7jg6zjg7zjg4jjgpLpgbjjgbY8L2Rpdj48ZGl2IGNsYXNzPSJyYXRlcyIgaWQ9InBrUmF0ZXMiPjwvZGl2PgogIDxkaXYgaWQ9InN0ZXBNb2RlbCIgaGlkZGVuPjxkaXYgY2xhc3M9ImxhYiI+PHNwYW4gY2xhc3M9Im4iPjI8L3NwYW4+5qmf56iu44KS6YG444G2PC9kaXY+CiAgIDxpbnB1dCBjbGFzcz0icGstZmlsdGVyIiBpZD0icGtGaWx0ZXIiIHBsYWNlaG9sZGVyPSLmqZ/nqK7lkI3jgafntZ7jgorovrzjgb8iIGF1dG9jb21wbGV0ZT0ib2ZmIj48ZGl2IGlkPSJwa01vZGVscyI+PC9kaXY+PC9kaXY+CiAgPGRpdiBpZD0ic3RlcE5vIiBoaWRkZW4+PGRpdiBjbGFzcz0ibGFiIj48c3BhbiBjbGFzcz0ibiI+Mzwvc3Bhbj7lj7Dnlarlj7fjgpLpgbjjgbY8L2Rpdj4KICAgPGRpdiBjbGFzcz0ibm9zIiBpZD0icGtOb3MiPjwvZGl2PjxkaXYgY2xhc3M9ImhpbnQiPuOCv+ODg+ODl+OBmeOCi+OBqOODnuODg+ODl+OBq+enu+WLleOBl+OBpuOAgeOBneOBruWPsOOBjOWFieOCiuOBvuOBmTwvZGl2PjwvZGl2PgogPC9kaXY+Cjwvc2VjdGlvbj4KCjxzZWN0aW9uIGlkPSJzY3JlZW5NYXAiIGNsYXNzPSJzY3JlZW4iPgogPGRpdiBjbGFzcz0ibWFwLWhlYWQiPjxidXR0b24gY2xhc3M9ImhvbWUiIGlkPSJob21lIj7jg4jjg4Pjg5c8L2J1dHRvbj4KICA8ZGl2IGNsYXNzPSJtaC1pbmZvIj48c3BhbiBjbGFzcz0icmF0ZS1waWxsIiBpZD0ibWhSYXRlIj48L3NwYW4+PHNwYW4gY2xhc3M9Im1oLW5hbWUiIGlkPSJtaE5hbWUiPjwvc3Bhbj48c3BhbiBjbGFzcz0ibWgtbm8gbnVtIiBpZD0ibWhObyI+PC9zcGFuPjwvZGl2PgogIDxhIGNsYXNzPSJtaC1zcGVjIiBpZD0ibWhTcGVjIiBocmVmPSIjIiB0YXJnZXQ9Il9ibGFuayIgcmVsPSJub29wZW5lciI+RE1NPC9hPjwvZGl2PgogPG1haW4+CiAgPGRpdiBpZD0ic3RhZ2UiPjxkaXYgaWQ9Im1hcHdyYXAiPjxzdmcgaWQ9Im92ZXJsYXkiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PC9zdmc+PC9kaXY+PC9kaXY+CiAgPGRpdiBjbGFzcz0ibWFya2VyIiBpZD0ibWFya2VyIiBoaWRkZW4+PGRpdiBjbGFzcz0idGFnIiBpZD0ibVRhZyI+PC9kaXY+PGRpdiBjbGFzcz0icGluIj48L2Rpdj48ZGl2IGNsYXNzPSJyaW5nIj48L2Rpdj48L2Rpdj4KICA8YnV0dG9uIGNsYXNzPSJob21lLWZhYiIgaWQ9ImhvbWVGYWIiPuKGkCDmiLvjgos8L2J1dHRvbj4KICA8ZGl2IGNsYXNzPSJ6b29tIj48YnV0dG9uIGlkPSJ6aW4iPu+8izwvYnV0dG9uPjxidXR0b24gaWQ9InpvdXQiPuKIkjwvYnV0dG9uPjxidXR0b24gaWQ9InpmaXQiPuKKmTwvYnV0dG9uPjxidXR0b24gaWQ9ImJndG9nZ2xlIiB0aXRsZT0i6IOM5pmv44Gu55m96buS44KS5YiH5pu/Ij7il5A8L2J1dHRvbj48L2Rpdj4KIDwvbWFpbj4KPC9zZWN0aW9uPgoKPHNjcmlwdD4KY29uc3QgREVGQVVMVF9EQj1fX0RCX187CmNvbnN0IENXPTE2LENIPTE1LFRXPTE0LjUsVEg9MTIuNTsKY29uc3QgWkxBQj17cDQ6JzTlhobjg5Hjg4Hjg7PjgrMnLHAxOicx5YaG44OR44OB44Oz44KzJyxzMjA6JzIw5YaG44K544Ot44OD44OIJyxzNTonNeWGhuOCueODreODg+ODiCd9OwovKiAtLS0g44Os44O844OINueoruWvvuW/nO+8mkNTVuOBruODrOODvOODiOihqOiomOOBruOBvuOBvuacgOWkpzboibLjgafoh6rli5XoibLliIbjgZEgLS0tICovCmNvbnN0IFJQQUw9WycjZTUzMjJjJywnI2Y3OTQxZCcsJyMzZjhmZDYnLCcjZjJjZjFhJywnIzliNTliNicsJyMxYWJjOWMnXTsKZnVuY3Rpb24gckx1bShoZXgpe2lmKCFoZXgpcmV0dXJuIDA7dmFyIGM9KCcnK2hleCkucmVwbGFjZSgnIycsJycpO2lmKGMubGVuZ3RoPDYpcmV0dXJuIDA7cmV0dXJuIDAuMjk5KnBhcnNlSW50KGMuc3Vic3RyKDAsMiksMTYpKzAuNTg3KnBhcnNlSW50KGMuc3Vic3RyKDIsMiksMTYpKzAuMTE0KnBhcnNlSW50KGMuc3Vic3RyKDQsMiksMTYpO30KZnVuY3Rpb24gcktpbmQoayl7dmFyIGM9KCcnK2spLmNoYXJBdCgwKS50b0xvd2VyQ2FzZSgpO3JldHVybiBjPT09J3AnPyfjg5Hjg4Hjg7PjgrMnOihjPT09J3MnPyfjgrnjg63jg4Pjg4gnOicnKTt9CmZ1bmN0aW9uIHJMYWJlbChrKXt2YXIgbT0oJycraykubWF0Y2goLyhcZCsoPzpcLlxkKyk/KS8pO3JldHVybiBtP21bMV0rJ+WGhic6KCcnK2spO30KZnVuY3Rpb24gcmVzb2x2ZVJhdGVzKGRiKXt2YXIgZGVmPShkYi5yYXRlc3x8W10pO3ZhciBtYXA9e307ZGVmLmZvckVhY2goZnVuY3Rpb24ocil7bWFwW3Iua2V5XT1yO30pO3ZhciBvcmRlcj1bXTtkZWYuZm9yRWFjaChmdW5jdGlvbihyKXtpZihvcmRlci5pbmRleE9mKHIua2V5KTwwKW9yZGVyLnB1c2goci5rZXkpO30pOyhkYi5tYWNoaW5lc3x8W10pLmZvckVhY2goZnVuY3Rpb24obSl7aWYobS5yYXRlJiZvcmRlci5pbmRleE9mKG0ucmF0ZSk8MClvcmRlci5wdXNoKG0ucmF0ZSk7fSk7cmV0dXJuIG9yZGVyLm1hcChmdW5jdGlvbihrLGkpe3ZhciBkPW1hcFtrXXx8e307cmV0dXJue2tleTprLGxhYmVsOmQubGFiZWx8fHJMYWJlbChrKSxraW5kOigna2luZCcgaW4gZCk/ZC5raW5kOnJLaW5kKGspLGNvbG9yOmQuY29sb3J8fFJQQUxbaSVSUEFMLmxlbmd0aF19O30pO30KZnVuY3Rpb24gclR4dChyYXRlKXt2YXIgY29sPShSTUFQW3JhdGVdfHx7fSkuY29sb3J8fCcjODg4JztyZXR1cm4gckx1bShjb2wpPjE3MD8nIzEwMTMxYSc6JyNmZmYnO30KY29uc3QgRkFDPXsKIGVudHJhbmNlOntsYWJlbDon5Ye65YWl5Y+jJyxjb2xvcjonIzI3YWU2MCcscGF0aDonTTE0IDZ2MTVIM3YtMmgyVjNoOXYxaDV2MTZoMnYyaC00VjZoLTN6bS00IDdjLjU1IDAgMS0uNDUgMS0xcy0uNDUtMS0xLTEtMSAuNDUtMSAxIC40NSAxIDEgMXonfSwKIHNldHRsZTp7bGFiZWw6J+eyvueul+apnycsY29sb3I6JyM1YjZiN2EnLHBhdGg6J00xMS44IDEwLjljLTIuMjctLjU5LTMtMS4yLTMtMi4xNSAwLTEuMDkgMS4wMS0xLjg1IDIuNy0xLjg1IDEuNzggMCAyLjQ0Ljg1IDIuNSAyLjFoMi4yMWMtLjA3LTEuNzItMS4xMi0zLjMtMy4yMS0zLjgxVjNoLTN2Mi4xNmMtMS45NC40Mi0zLjUgMS42OC0zLjUgMy42MSAwIDIuMzEgMS45MSAzLjQ2IDQuNyA0LjEzIDIuNS42IDMgMS40OCAzIDIuNDEgMCAuNjktLjQ5IDEuNzktMi43IDEuNzktMi4wNiAwLTIuODctLjkyLTIuOTgtMi4xaC0yLjJjLjEyIDIuMTkgMS43NiAzLjQyIDMuNjggMy44M1YyMWgzdi0yLjE1YzEuOTUtLjM3IDMuNS0xLjUgMy41LTMuNTUgMC0yLjg0LTIuNDMtMy44MS00LjctNC40eid9LAogY2hhbmdlOntsYWJlbDon5Lih5pu/5qmfJyxjb2xvcjonIzE2YTA4NScscGF0aDonTTExLjggMTAuOWMtMi4yNy0uNTktMy0xLjItMy0yLjE1IDAtMS4wOSAxLjAxLTEuODUgMi43LTEuODUgMS43OCAwIDIuNDQuODUgMi41IDIuMWgyLjIxYy0uMDctMS43Mi0xLjEyLTMuMy0zLjIxLTMuODFWM2gtM3YyLjE2Yy0xLjk0LjQyLTMuNSAxLjY4LTMuNSAzLjYxIDAgMi4zMSAxLjkxIDMuNDYgNC43IDQuMTMgMi41LjYgMyAxLjQ4IDMgMi40MSAwIC42OS0uNDkgMS43OS0yLjcgMS43OS0yLjA2IDAtMi44Ny0uOTItMi45OC0yLjFoLTIuMmMuMTIgMi4xOSAxLjc2IDMuNDIgMy42OCAzLjgzVjIxaDN2LTIuMTVjMS45NS0uMzcgMy41LTEuNSAzLjUtMy41NSAwLTIuODQtMi40My0zLjgxLTQuNy00LjR6J30sCiB0b2lsZXQ6e2xhYmVsOifjg4jjgqTjg6wnLGNvbG9yOicjOGU2ZmIwJyxwYXRoOidNNS41IDIydi03LjVINFY5YzAtMS4xLjktMiAyLTJoMWMxLjEgMCAyIC45IDIgMnY1LjVINy41VjIyaC0yek0xOCAyMnYtNmgzbC0yLjU0LTcuNjNBMi4wMSAyLjAxIDAgMCAwIDE2LjU2IDdoLS4xMmEyIDIgMCAwIDAtMS45IDEuMzdMMTIgMTZoM3Y2aDN6TTcuNSA2Yy44MyAwIDEuNS0uNjcgMS41LTEuNVM4LjMzIDMgNy41IDMgNiAzLjY3IDYgNC41IDYuNjcgNiA3LjUgNnptOSAwYy44MyAwIDEuNS0uNjcgMS41LTEuNVMxNy4zMyAzIDE2LjUgMyAxNSAzLjY3IDE1IDQuNXMuNjcgMS41IDEuNSAxLjV6J30sCiB0b2lsZXRfbTp7bGFiZWw6J+eUt+aApycsY29sb3I6JyMyODc3YzQnLHBhdGg6J00xNCA3aC00Yy0xLjEgMC0yIC45LTIgMnY2aDJ2N2g0di03aDJWOWMwLTEuMS0uOS0yLTItMnptLTItMWMxLjEgMCAyLS45IDItMnMtLjktMi0yLTItMiAuOS0yIDIgLjkgMiAyIDJ6J30sCiB0b2lsZXRfdzp7bGFiZWw6J+Wls+aApycsY29sb3I6JyNlMDU1OWInLHBhdGg6J00xMy45NCA4LjMxQzEzLjYyIDcuNTIgMTIuODUgNyAxMiA3cy0xLjYyLjUyLTEuOTQgMS4zMWwtMi44MSA3LjAzYy0uMjcuNjUuMjIgMS4zNi45MyAxLjM2SDEwdjVoNHYtNWgxLjgxYy43MSAwIDEuMi0uNzEuOTMtMS4zNmwtMi44MS03LjAyek0xMiA2YzEuMSAwIDItLjkgMi0ycy0uOS0yLTItMi0yIC45LTIgMiAuOSAyIDIgMnonfSwKIHJlc3Q6e2xhYmVsOifkvJHmhqnmiYAnLGNvbG9yOicjYjk4ODNlJyxwYXRoOidNNCAxOHYzaDN2LTNoMTB2M2gzdi02SDR2M3ptMTUtOGgzdjNoLTN2LTN6TTIgMTBoM3YzSDJ2LTN6bTE1IDNIN1Y1YzAtMS4xLjktMiAyLTJoNmMxLjEgMCAyIC45IDIgMnY4eid9LAogY291bnRlcjp7bGFiZWw6J+OCq+OCpuODs+OCv+ODvCcsY29sb3I6JyNkNGEwMTcnLGZnOicjMTAxMzFhJyxwYXRoOidNMjAgNEg0djJoMTZWNHptMSAxMHYtMmwtMS01SDRsLTEgNXYyaDF2NmgxMHYtNmg0djZoMnYtNmgxem0tOSA0SDZ2LTRoNnY0eid9LAogZWxldmF0b3I6e2xhYmVsOidFVicsY29sb3I6JyMyZTZmYjAnLHBhdGg6J00xOSAzSDVjLTEuMSAwLTIgLjktMiAydjE0YzAgMS4xLjkgMiAyIDJoMTRjMS4xIDAgMi0uOSAyLTJWNWMwLTEuMS0uOS0yLTItMnptLTcgMy41TDE1IDEwSDlsMy0zLjV6TTkgMTRoNmwtMyAzLjVMOSAxNHonfQp9Owpjb25zdCBGQUNBTElBUz17J+WHuuWFpeWPoyc6J2VudHJhbmNlJywn5YWl5Y+jJzonZW50cmFuY2UnLCflh7rlj6MnOidlbnRyYW5jZScsJ+eyvueul+apnyc6J3NldHRsZScsJ+eyvueulyc6J3NldHRsZScsJ+S4oeabv+apnyc6J2NoYW5nZScsJ+S4oeabvyc6J2NoYW5nZScsJ+ODiOOCpOODrCc6J3RvaWxldCcsJ+OBiuaJi+a0l+OBhCc6J3RvaWxldCcsJ+WMlueyp+WupCc6J3RvaWxldCcsJ+eUt+aAp+ODiOOCpOODrCc6J3RvaWxldF9tJywn55S344OI44Kk44OsJzondG9pbGV0X20nLCfnlLfmgKcnOid0b2lsZXRfbScsJ+eUtyc6J3RvaWxldF9tJywn5aWz5oCn44OI44Kk44OsJzondG9pbGV0X3cnLCflpbPjg4jjgqTjg6wnOid0b2lsZXRfdycsJ+Wls+aApyc6J3RvaWxldF93Jywn5aWzJzondG9pbGV0X3cnLCfkvJHmhqnmiYAnOidyZXN0Jywn5LyR5oapJzoncmVzdCcsJ+S8keaGqeOCs+ODvOODiuODvCc6J3Jlc3QnLCfjgqvjgqbjg7Pjgr/jg7wnOidjb3VudGVyJywn5Y+X5LuYJzonY291bnRlcicsJ+OCqOODrOODmeODvOOCv+ODvCc6J2VsZXZhdG9yJywn44Ko44Os44OZ44O844K/JzonZWxldmF0b3InLCdFVic6J2VsZXZhdG9yJ307CmZ1bmN0aW9uIGZhY05vcm0odCl7dD0odHx8JycpLnRyaW0oKTtyZXR1cm4gRkFDW3RdP3Q6KEZBQ0FMSUFTW3RdfHx0KTt9CmNvbnN0IE5TPSdodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2Zyc7CmNvbnN0IGVsPSh0LGEpPT57Y29uc3QgZT1kb2N1bWVudC5jcmVhdGVFbGVtZW50TlMoTlMsdCk7Zm9yKGNvbnN0IGsgaW4gYSllLnNldEF0dHJpYnV0ZShrLGFba10pO3JldHVybiBlO307CmZ1bmN0aW9uIGVzYyhzKXtyZXR1cm4gKCcnKyhzPT1udWxsPycnOnMpKS5yZXBsYWNlKC8mL2csJyZhbXA7JykucmVwbGFjZSgvPC9nLCcmbHQ7JykucmVwbGFjZSgvPi9nLCcmZ3Q7JykucmVwbGFjZSgvIi9nLCcmcXVvdDsnKTt9CmZ1bmN0aW9uIHR4dE9uKGhleCl7aWYoIWhleClyZXR1cm4gJyMxMDEzMWEnO2NvbnN0IGM9aGV4LnJlcGxhY2UoJyMnLCcnKTtpZihjLmxlbmd0aDw2KXJldHVybiAnIzEwMTMxYSc7Y29uc3Qgcj1wYXJzZUludChjLnN1YnN0cigwLDIpLDE2KSxnPXBhcnNlSW50KGMuc3Vic3RyKDIsMiksMTYpLGI9cGFyc2VJbnQoYy5zdWJzdHIoNCwyKSwxNik7cmV0dXJuICgwLjI5OSpyKzAuNTg3KmcrMC4xMTQqYik+MTUwPycjMTAxMzFhJzonI2ZmZic7fQoKbGV0IERCLFJBVEVTLFJBVEVTX05FVyxSTUFQLG1hY2hpbmVzLGZhY2lsaXRpZXMsYnlObyxleHQ7CmZ1bmN0aW9uIHBhcnNlUmF0ZVJhdyhyYXcpe3ZhciBzPSgnJysocmF3PT1udWxsPycnOnJhdykpLnRyaW0oKTt2YXIgaXNOZXc9ZmFsc2UsYmFzZT1zOwogaWYoL17mlrDlj7AvLnRlc3Qocykpe2lzTmV3PXRydWU7YmFzZT1zLnJlcGxhY2UoL17mlrDlj7AvLCcnKS50cmltKCk7fQogZWxzZSBpZigv5paw5Y+wJC8udGVzdChzKSl7aXNOZXc9dHJ1ZTtiYXNlPXMucmVwbGFjZSgv5paw5Y+wJC8sJycpLnRyaW0oKTt9CiBpZighYmFzZSliYXNlPXM7CiBpZigvXltBLVphLXpdW0EtWmEtejAtOS5dKiQvLnRlc3QoYmFzZSkpYmFzZT1iYXNlLnRvTG93ZXJDYXNlKCk7CiByZXR1cm57a2V5OmJhc2UsaXNOZXc6aXNOZXd9O30KZnVuY3Rpb24gYnVpbGRGcm9tKGRiKXsKIERCPWRiOwogbWFjaGluZXM9KGRiLm1hY2hpbmVzfHxbXSkubWFwKG09Pntjb25zdCBwcj1wYXJzZVJhdGVSYXcobS5yYXRlKTtyZXR1cm57bm86K20ubm8sbmFtZTptLm5hbWV8fCcnLHJhdGU6cHIua2V5LGlzTmV3OnByLmlzTmV3LGNvbDorbS5jb2wscm93OittLnJvdyxjeDorbS5jb2wqQ1csY3k6K20ucm93KkNIfTt9KTsKIFJBVEVTPXJlc29sdmVSYXRlcyh7cmF0ZXM6ZGIucmF0ZXMsbWFjaGluZXM6bWFjaGluZXN9KTsKIFJBVEVTX05FVz1SQVRFUy5maWx0ZXIocj0+bWFjaGluZXMuc29tZShtPT5tLnJhdGU9PT1yLmtleSYmbS5pc05ldykpLm1hcChyPT4oe2tleTonbmV3Oicrci5rZXksbGFiZWw6J+aWsOWPsCcsc3ViOnIubGFiZWwrKHIua2luZD8oJyAnK3Iua2luZCk6JycpLGtpbmQ6ci5raW5kLGNvbG9yOicjMjJjNTVlJyxpc05ld0NhdDp0cnVlLGJhc2VLZXk6ci5rZXl9KSk7CiBSTUFQPU9iamVjdC5mcm9tRW50cmllcyhSQVRFUy5jb25jYXQoUkFURVNfTkVXKS5tYXAocj0+W3Iua2V5LHJdKSk7CiBmYWNpbGl0aWVzPShkYi5mYWNpbGl0aWVzfHxbXSkubWFwKGY9Pih7dHlwZTpmYWNOb3JtKGYudHlwZSksbGFiZWw6Zi5sYWJlbHx8JycsY29sOitmLmNvbCxyb3c6K2Yucm93LHc6K2Yud3x8MyxoOitmLmh8fDMsY3g6K2YuY29sKkNXLGN5OitmLnJvdypDSH0pKTsKIGJ5Tm89bmV3IE1hcChtYWNoaW5lcy5tYXAobT0+W20ubm8sbV0pKTsKIGxldCB4cz1bXSx5cz1bXTsKIG1hY2hpbmVzLmZvckVhY2gobT0+e3hzLnB1c2gobS5jeCk7eXMucHVzaChtLmN5KTt9KTsKIGZhY2lsaXRpZXMuZm9yRWFjaChmPT57eHMucHVzaChmLmN4LWYudypDVy8yLGYuY3grZi53KkNXLzIpO3lzLnB1c2goZi5jeS1mLmgqQ0gvMixmLmN5K2YuaCpDSC8yKTt9KTsKIGV4dD17eDA6TWF0aC5taW4oLi4ueHMpLUNXKjIseTA6TWF0aC5taW4oLi4ueXMpLUNIKjIseDE6TWF0aC5tYXgoLi4ueHMpK0NXKjIseTE6TWF0aC5tYXgoLi4ueXMpK0NIKjJ9OwogaW5kZXhQaWNrZXIoKTsKIGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCdzdG9yZU5hbWUnKS50ZXh0Q29udGVudD0n8J+PrCAnKyhkYi5zdG9yZXx8J+W6l+iIl+WQjeacquioreWumicpKyfjgIDnt4/lj7DmlbAnK21hY2hpbmVzLmxlbmd0aCsn5Y+wJzsKIHJlbmRlcmVkPWZhbHNlOyBzdD17cmF0ZTpudWxsLG1vZGVsOm51bGx9Owp9CmZ1bmN0aW9uIHNwZWNVcmwobSl7cmV0dXJuIG0ubmFtZT8naHR0cHM6Ly93d3cuZ29vZ2xlLmNvbS9zZWFyY2g/cT0nK2VuY29kZVVSSUNvbXBvbmVudChtLm5hbWUrJyBzaXRlOnAtdG93bi5kbW0uY29tJyk6JyMnO30KCmxldCBieVJhdGUsbW9kZWxzQnlSYXRlLG5vc0J5Uk0sbWluTm9STTsKZnVuY3Rpb24gaW5kZXhQaWNrZXIoKXtieVJhdGU9e307bW9kZWxzQnlSYXRlPXt9O25vc0J5Uk09e307bWluTm9STT17fTsKIG1hY2hpbmVzLmZvckVhY2gobT0+e2lmKCFtLnJhdGUpcmV0dXJuOwogIGNvbnN0IGtleXM9W20ucmF0ZV07aWYobS5pc05ldylrZXlzLnB1c2goJ25ldzonK20ucmF0ZSk7CiAga2V5cy5mb3JFYWNoKHJrPT57KGJ5UmF0ZVtya109YnlSYXRlW3JrXXx8W10pLnB1c2gobSk7aWYoIW0ubmFtZSlyZXR1cm47KG1vZGVsc0J5UmF0ZVtya109bW9kZWxzQnlSYXRlW3JrXXx8e30pO21vZGVsc0J5UmF0ZVtya11bbS5uYW1lXT0obW9kZWxzQnlSYXRlW3JrXVttLm5hbWVdfHwwKSsxO2NvbnN0IGs9cmsrJ1x1MDAwMCcrbS5uYW1lOyhub3NCeVJNW2tdPW5vc0J5Uk1ba118fFtdKS5wdXNoKG0ubm8pO21pbk5vUk1ba109TWF0aC5taW4obWluTm9STVtrXT8/MWU5LG0ubm8pO30pOwogfSk7fQoKbGV0IHN0PXtyYXRlOm51bGwsbW9kZWw6bnVsbH07CmNvbnN0IHN0ZXBNb2RlbD1kb2N1bWVudC5nZXRFbGVtZW50QnlJZCgnc3RlcE1vZGVsJyksc3RlcE5vPWRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCdzdGVwTm8nKTsKY29uc3QgcGtNb2RlbHM9ZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoJ3BrTW9kZWxzJykscGtOb3M9ZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoJ3BrTm9zJykscGtGaWx0ZXI9ZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoJ3BrRmlsdGVyJyksc2VsQm9keT1kb2N1bWVudC5nZXRFbGVtZW50QnlJZCgnc2VsQm9keScpOwpmdW5jdGlvbiByZW5kZXJSYXRlcygpe2NvbnN0IGJveD1kb2N1bWVudC5nZXRFbGVtZW50QnlJZCgncGtSYXRlcycpO2JveC5pbm5lckhUTUw9Jyc7UkFURVMuZm9yRWFjaChyPT57Y29uc3Qgbj0oYnlSYXRlW3Iua2V5XXx8W10pLmxlbmd0aDtpZighbilyZXR1cm47Y29uc3QgYj1kb2N1bWVudC5jcmVhdGVFbGVtZW50KCdidXR0b24nKTtiLmNsYXNzTmFtZT0ncmJ0bicrKHN0LnJhdGU9PT1yLmtleT8nIHNlbCc6JycpO2Iuc3R5bGUuYmFja2dyb3VuZD1yLmNvbG9yO2IuaW5uZXJIVE1MPWA8c3BhbiBjbGFzcz0icmwiPiR7ZXNjKHIubGFiZWwpfTwvc3Bhbj48c3BhbiBjbGFzcz0icmsiPiR7ZXNjKHIua2luZHx8JycpfTwvc3Bhbj48c3BhbiBjbGFzcz0icmMiPiR7bn3lj7A8L3NwYW4+YDtiLm9uY2xpY2s9KCk9PnBpY2tSYXRlKHIua2V5KTtib3guYXBwZW5kQ2hpbGQoYik7fSk7CiBjb25zdCBuYm94PWRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCdwa1JhdGVzTmV3JyksbmxhYj1kb2N1bWVudC5nZXRFbGVtZW50QnlJZCgnbmV3TGFiJyk7bGV0IGFueT1mYWxzZTsKIGlmKG5ib3gpe25ib3guaW5uZXJIVE1MPScnO1JBVEVTX05FVy5mb3JFYWNoKHI9Pntjb25zdCBuPShieVJhdGVbci5rZXldfHxbXSkubGVuZ3RoO2lmKCFuKXJldHVybjthbnk9dHJ1ZTtjb25zdCBiPWRvY3VtZW50LmNyZWF0ZUVsZW1lbnQoJ2J1dHRvbicpO2IuY2xhc3NOYW1lPSdyYnRuIG5ldy1yYnRuJysoc3QucmF0ZT09PXIua2V5Pycgc2VsJzonJyk7Yi5zdHlsZS5iYWNrZ3JvdW5kPXIuY29sb3I7Yi5pbm5lckhUTUw9YDxzcGFuIGNsYXNzPSJybCI+8J+GlSAke2VzYyhyLmxhYmVsKX08L3NwYW4+PHNwYW4gY2xhc3M9InJrIj4ke2VzYyhyLnN1Ynx8JycpfTwvc3Bhbj48c3BhbiBjbGFzcz0icmMiPiR7bn3lj7A8L3NwYW4+YDtiLm9uY2xpY2s9KCk9PnBpY2tSYXRlKHIua2V5KTtuYm94LmFwcGVuZENoaWxkKGIpO30pO30KIGlmKG5sYWIpbmxhYi5oaWRkZW49IWFueTt9CmZ1bmN0aW9uIHBpY2tSYXRlKGspe3N0LnJhdGU9aztzdC5tb2RlbD1udWxsO3JlbmRlclJhdGVzKCk7c3RlcE1vZGVsLmhpZGRlbj1mYWxzZTtzdGVwTm8uaGlkZGVuPXRydWU7cGtGaWx0ZXIudmFsdWU9Jyc7cmVuZGVyTW9kZWxzKCcnKTtzZXRUaW1lb3V0KCgpPT5zdGVwTW9kZWwuc2Nyb2xsSW50b1ZpZXcoe2JlaGF2aW9yOidzbW9vdGgnLGJsb2NrOidzdGFydCd9KSw2MCk7fQpmdW5jdGlvbiByZW5kZXJNb2RlbHMocSl7Y29uc3QgZGljdD1tb2RlbHNCeVJhdGVbc3QucmF0ZV18fHt9O2xldCBhcnI9T2JqZWN0LmtleXMoZGljdCk7YXJyLnNvcnQoKGEsYik9Pm1pbk5vUk1bc3QucmF0ZSsnXHUwMDAwJythXS1taW5Ob1JNW3N0LnJhdGUrJ1x1MDAwMCcrYl0pO2lmKHEpe2NvbnN0IHM9cS50b0xvd2VyQ2FzZSgpO2Fycj1hcnIuZmlsdGVyKG49Pm4udG9Mb3dlckNhc2UoKS5pbmNsdWRlcyhzKSk7fXBrTW9kZWxzLmlubmVySFRNTD0nJztpZighYXJyLmxlbmd0aCl7cGtNb2RlbHMuaW5uZXJIVE1MPSc8ZGl2IGNsYXNzPSJway1lbXB0eSI+6Kmy5b2T44Gq44GXPC9kaXY+JztyZXR1cm47fWNvbnN0IGNvbD1STUFQW3N0LnJhdGVdLmNvbG9yO2Fyci5mb3JFYWNoKG5hbWU9Pntjb25zdCBrPXN0LnJhdGUrJ1x1MDAwMCcrbmFtZTtjb25zdCByb3c9ZG9jdW1lbnQuY3JlYXRlRWxlbWVudCgnZGl2Jyk7cm93LmNsYXNzTmFtZT0nbXJvdycrKHN0Lm1vZGVsPT09bmFtZT8nIHNlbCc6JycpO3Jvdy5pbm5lckhUTUw9YDxzcGFuIGNsYXNzPSJzd2F0Y2giIHN0eWxlPSJiYWNrZ3JvdW5kOiR7Y29sfSI+PC9zcGFuPjxzcGFuIGNsYXNzPSJtbiI+JHtlc2MobmFtZSl9PC9zcGFuPjxzcGFuIGNsYXNzPSJtYyI+JHtkaWN0W25hbWVdfeWPsOODuyR7bWluTm9STVtrXX3jgJw8L3NwYW4+PHNwYW4gY2xhc3M9ImNoZXYiPuKAujwvc3Bhbj5gO3Jvdy5vbmNsaWNrPSgpPT5waWNrTW9kZWwobmFtZSk7cGtNb2RlbHMuYXBwZW5kQ2hpbGQocm93KTt9KTt9CnBrRmlsdGVyLmFkZEV2ZW50TGlzdGVuZXIoJ2lucHV0JywoKT0+cmVuZGVyTW9kZWxzKHBrRmlsdGVyLnZhbHVlLnRyaW0oKSkpOwpmdW5jdGlvbiBwaWNrTW9kZWwobmFtZSl7c3QubW9kZWw9bmFtZTtyZW5kZXJNb2RlbHMocGtGaWx0ZXIudmFsdWUudHJpbSgpKTtzdGVwTm8uaGlkZGVuPWZhbHNlO3JlbmRlck5vcygpO3NldFRpbWVvdXQoKCk9PnN0ZXBOby5zY3JvbGxJbnRvVmlldyh7YmVoYXZpb3I6J3Ntb290aCcsYmxvY2s6J3N0YXJ0J30pLDYwKTt9CmZ1bmN0aW9uIHJlbmRlck5vcygpe2NvbnN0IG5vcz0obm9zQnlSTVtzdC5yYXRlKydcdTAwMDAnK3N0Lm1vZGVsXXx8W10pLnNsaWNlKCkuc29ydCgoYSxiKT0+YS1iKTtwa05vcy5pbm5lckhUTUw9Jyc7bm9zLmZvckVhY2gobm89Pntjb25zdCBjPWRvY3VtZW50LmNyZWF0ZUVsZW1lbnQoJ2J1dHRvbicpO2NvbnN0IG1tPWJ5Tm8uZ2V0KG5vKTtjLmNsYXNzTmFtZT0nbm9jaGlwJysobW0mJm1tLmlzTmV3PycgbmV3JzonJyk7Yy50ZXh0Q29udGVudD1ubztjLm9uY2xpY2s9KCk9PmdvTWFwKG5vKTtwa05vcy5hcHBlbmRDaGlsZChjKTt9KTt9CgpmdW5jdGlvbiByZXNldFRvVG9wKCl7c3Q9e3JhdGU6bnVsbCxtb2RlbDpudWxsfTtyZW5kZXJSYXRlcygpO3N0ZXBNb2RlbC5oaWRkZW49dHJ1ZTtzdGVwTm8uaGlkZGVuPXRydWU7cGtGaWx0ZXIudmFsdWU9Jyc7cGtNb2RlbHMuaW5uZXJIVE1MPScnO3BrTm9zLmlubmVySFRNTD0nJztzY3JlZW5NYXAuY2xhc3NMaXN0LnJlbW92ZSgnb24nKTttYXJrZXIuaGlkZGVuPXRydWU7c2VsQm9keS5zY3JvbGxUb3A9MDt9CmZ1bmN0aW9uIGdvQmFjaygpe3NjcmVlbk1hcC5jbGFzc0xpc3QucmVtb3ZlKCdvbicpO21hcmtlci5oaWRkZW49dHJ1ZTsKIGNvbnN0IHNlbFJvdz1wa01vZGVscy5xdWVyeVNlbGVjdG9yKCcubXJvdy5zZWwnKTsKIGlmKHNlbFJvdylzZXRUaW1lb3V0KCgpPT5zZWxSb3cuc2Nyb2xsSW50b1ZpZXcoe2JlaGF2aW9yOidzbW9vdGgnLGJsb2NrOidjZW50ZXInfSksNjApO30KZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoJ3RvcEJ0bicpLm9uY2xpY2s9cmVzZXRUb1RvcDsKZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoJ2hvbWUnKS5vbmNsaWNrPXJlc2V0VG9Ub3A7CmRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCdob21lRmFiJykub25jbGljaz1nb0JhY2s7Cgpjb25zdCBzdGFnZT1kb2N1bWVudC5nZXRFbGVtZW50QnlJZCgnc3RhZ2UnKSx3cmFwPWRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCdtYXB3cmFwJyksb3ZlcmxheT1kb2N1bWVudC5nZXRFbGVtZW50QnlJZCgnb3ZlcmxheScpOwpsZXQgcmVuZGVyZWQ9ZmFsc2U7CmZ1bmN0aW9uIHJlbmRlcigpe292ZXJsYXkuaW5uZXJIVE1MPScnOwogY29uc3QgVz1leHQueDEtZXh0LngwLEg9ZXh0LnkxLWV4dC55MDsKIG92ZXJsYXkuc2V0QXR0cmlidXRlKCd2aWV3Qm94JyxgJHtleHQueDB9ICR7ZXh0LnkwfSAke1d9ICR7SH1gKTtvdmVybGF5LnNldEF0dHJpYnV0ZSgnd2lkdGgnLFcpO292ZXJsYXkuc2V0QXR0cmlidXRlKCdoZWlnaHQnLEgpOwogb3ZlcmxheS5hcHBlbmRDaGlsZChlbCgncmVjdCcse2lkOidiZ3JlY3QnLHg6ZXh0LngwLHk6ZXh0LnkwLHdpZHRoOlcsaGVpZ2h0OkgsZmlsbDooYmdEYXJrPycjMGYxNDFiJzonI2ZmZmZmZicpfSkpOwogY29uc3QgZz1lbCgnZycse30pOwogLy8g6Kit5YKZ77yI6IOM6Z2i77yJCiBmb3IoY29uc3QgZiBvZiBmYWNpbGl0aWVzKXtjb25zdCBibGFuaz0oZi50eXBlPT09J2JsYW5rJ3x8Zi50eXBlPT09J+epuueZvScpO2NvbnN0IHQ9RkFDW2YudHlwZV18fHtsYWJlbDpmLnR5cGV8fCcnLGNvbG9yOicjOWFhNmIyJyxwYXRoOm51bGx9OwogIGNvbnN0IGZpbGxjPWJsYW5rPyhmLmNvbG9yfHwnIzg4YTBjMCcpOnQuY29sb3I7CiAgY29uc3Qgdz1mLncqQ1csaD1mLmgqQ0gseD1mLmN4LHk9Zi5jeSxmZz1ibGFuaz90eHRPbihmaWxsYyk6KHQuZmd8fCcjZmZmJyk7CiAgZy5hcHBlbmRDaGlsZChlbCgncmVjdCcse3g6eC13LzIseTp5LWgvMix3aWR0aDp3LGhlaWdodDpoLHJ4OjUsZmlsbDpmaWxsYyxvcGFjaXR5Oi45MyxzdHJva2U6JyNmZmYnLCdzdHJva2Utd2lkdGgnOjEuNH0pKTsKICBjb25zdCBpc3o9TWF0aC5taW4odyxoKSowLjU7CiAgaWYoIWJsYW5rJiZ0LnBhdGgpZy5hcHBlbmRDaGlsZChlbCgncGF0aCcse2Q6dC5wYXRoLGZpbGw6Zmcsb3BhY2l0eTouOTUsdHJhbnNmb3JtOmB0cmFuc2xhdGUoJHt4LWlzei8yfSwke3ktaC8yK01hdGgubWF4KDQsaCowLjEpfSkgc2NhbGUoJHtpc3ovMjR9KWB9KSk7CiAgY29uc3QgdGw9ZWwoJ3RleHQnLHtjbGFzczonZmFjLWxhYmVsJyx4OngseTp5K2gvMi1NYXRoLm1heCg1LGgqMC4xMiksJ2ZvbnQtc2l6ZSc6TWF0aC5taW4odyowLjMyLGgqMC4yNiwxMyksZmlsbDpmZ30pO3RsLnRleHRDb250ZW50PWYubGFiZWx8fChibGFuaz8nJzp0LmxhYmVsKTtnLmFwcGVuZENoaWxkKHRsKTsKIH0KIC8vIOWPsO+8iOWPsOeVquWPt+OBpOOBjeODu+aLoeWkp+OBp+iqreOCgeOCi++8iQogZm9yKGNvbnN0IG0gb2YgbWFjaGluZXMpe2NvbnN0IGNvbD0oUk1BUFttLnJhdGVdfHx7fSkuY29sb3J8fCcjODg4JzsKICBjb25zdCByPWVsKCdyZWN0Jyx7Y2xhc3M6J21hY2hpbmUnLHg6bS5jeC1UVy8yLHk6bS5jeS1USC8yLHdpZHRoOlRXLGhlaWdodDpUSCxyeDoyLGZpbGw6Y29sLCdkYXRhLW5vJzptLm5vfSk7bS5fZz1yO2cuYXBwZW5kQ2hpbGQocik7CiAgY29uc3QgdD1lbCgndGV4dCcse3g6bS5jeCx5Om0uY3krMC4yLCd0ZXh0LWFuY2hvcic6J21pZGRsZScsJ2RvbWluYW50LWJhc2VsaW5lJzonY2VudHJhbCcsJ2ZvbnQtc2l6ZSc6NC4zLCdmb250LXdlaWdodCc6NzAwLGZpbGw6clR4dChtLnJhdGUpLCdwb2ludGVyLWV2ZW50cyc6J25vbmUnLCdmb250LWZhbWlseSc6J0hlbHZldGljYSxBcmlhbCxzYW5zLXNlcmlmJ30pO3QudGV4dENvbnRlbnQ9bS5ubzttLl90eHQ9dDtnLmFwcGVuZENoaWxkKHQpOwogIGlmKG0uaXNOZXcpZy5hcHBlbmRDaGlsZChlbCgncmVjdCcse2NsYXNzOiduZXctb3V0bGluZScseDptLmN4LVRXLzItMC43LHk6bS5jeS1USC8yLTAuNyx3aWR0aDpUVysxLjQsaGVpZ2h0OlRIKzEuNCxyeDoyLjYsZmlsbDonbm9uZScsJ2RhdGEtbm8nOm0ubm8sJ3BvaW50ZXItZXZlbnRzJzonbm9uZSd9KSk7fQogLy8g6YG45oqe5Y+w44OP44Kk44Op44Kk44OI55So44Kw44Or44O844OX77yI44K+44O844Oz5paH5a2X44Gv6KGo56S644GX44Gq44GE77yJCiBnLmFwcGVuZENoaWxkKGVsKCdnJyx7aWQ6J2hsJ30pKTsKIG92ZXJsYXkuYXBwZW5kQ2hpbGQoZyk7cmVuZGVyZWQ9dHJ1ZTt9CgpsZXQgdmlldz17czoxLHR4OjAsdHk6MH0sdGFyZ2V0PW51bGw7CmZ1bmN0aW9uIGNsYW1wVmlldygpe2NvbnN0IHZ3PXN0YWdlLmNsaWVudFdpZHRoLHZoPXN0YWdlLmNsaWVudEhlaWdodDsKIGNvbnN0IFc9KGV4dC54MS1leHQueDApKnZpZXcucyxIPShleHQueTEtZXh0LnkwKSp2aWV3LnM7CiBjb25zdCBteD1NYXRoLm1pbih2dyowLjI4LDE0MCksbXk9TWF0aC5taW4odmgqMC4yMiwxMTApOwogaWYoVzw9dnctMipteCl7dmlldy50eD0odnctVykvMi1leHQueDAqdmlldy5zO30KIGVsc2V7Y29uc3QgbG89bXgtZXh0LngxKnZpZXcucyxoaT12dy1teC1leHQueDAqdmlldy5zO3ZpZXcudHg9TWF0aC5taW4oaGksTWF0aC5tYXgobG8sdmlldy50eCkpO30KIGlmKEg8PXZoLTIqbXkpe3ZpZXcudHk9KHZoLUgpLzItZXh0LnkwKnZpZXcuczt9CiBlbHNle2NvbnN0IGxvPW15LWV4dC55MSp2aWV3LnMsaGk9dmgtbXktZXh0LnkwKnZpZXcuczt2aWV3LnR5PU1hdGgubWluKGhpLE1hdGgubWF4KGxvLHZpZXcudHkpKTt9fQpmdW5jdGlvbiBhcHBseVZpZXcoKXtjbGFtcFZpZXcoKTt3cmFwLnN0eWxlLnRyYW5zZm9ybT1gdHJhbnNsYXRlKCR7dmlldy50eH1weCwke3ZpZXcudHl9cHgpIHNjYWxlKCR7dmlldy5zfSlgO3VwZGF0ZU1hcmtlcigpO30KZnVuY3Rpb24gZml0KCl7Y29uc3QgVz1leHQueDEtZXh0LngwLEg9ZXh0LnkxLWV4dC55MCx2dz1zdGFnZS5jbGllbnRXaWR0aCx2aD1zdGFnZS5jbGllbnRIZWlnaHQscz1NYXRoLm1pbih2dy9XLHZoL0gpKjAuOTc7dmlldy5zPXM7dmlldy50eD0odnctVypzKS8yLWV4dC54MCpzO3ZpZXcudHk9KHZoLUgqcykvMi1leHQueTAqczthcHBseVZpZXcoKTt9CmZ1bmN0aW9uIGZvY3VzUGluKCl7aWYoIXRhcmdldCl7Zml0KCk7cmV0dXJuO31jb25zdCBXPWV4dC54MS1leHQueDAsSD1leHQueTEtZXh0LnkwLHZ3PXN0YWdlLmNsaWVudFdpZHRoLHZoPXN0YWdlLmNsaWVudEhlaWdodDtjb25zdCBmaXRTPU1hdGgubWluKHZ3L1csdmgvSCkqMC45Nztjb25zdCBzPU1hdGgubWluKE1hdGgubWF4KHZ3LzUyMCxmaXRTKSwzLjApO3ZpZXcucz1zO3ZpZXcudHg9dncvMi10YXJnZXQuY3gqczt2aWV3LnR5PXZoKjAuNDQtdGFyZ2V0LmN5KnM7YXBwbHlWaWV3KCk7fQpmdW5jdGlvbiB6b29tQXQoZixweCxweSl7Y29uc3QgbnM9TWF0aC5tYXgoMC4yLE1hdGgubWluKDksdmlldy5zKmYpKSxrPW5zL3ZpZXcuczt2aWV3LnR4PXB4LShweC12aWV3LnR4KSprO3ZpZXcudHk9cHktKHB5LXZpZXcudHkpKms7dmlldy5zPW5zO2FwcGx5VmlldygpO30KY29uc3QgbWFya2VyPWRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCdtYXJrZXInKTsKZnVuY3Rpb24gdXBkYXRlTWFya2VyKCl7aWYoIXRhcmdldHx8IXNjcmVlbk1hcC5jbGFzc0xpc3QuY29udGFpbnMoJ29uJykpe21hcmtlci5oaWRkZW49dHJ1ZTtyZXR1cm47fW1hcmtlci5zdHlsZS5sZWZ0PSh2aWV3LnR4K3RhcmdldC5jeCp2aWV3LnMpKydweCc7bWFya2VyLnN0eWxlLnRvcD0odmlldy50eSt0YXJnZXQuY3kqdmlldy5zKSsncHgnO21hcmtlci5oaWRkZW49ZmFsc2U7fQpkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgnemluJykub25jbGljaz0oKT0+em9vbUF0KDEuMyxzdGFnZS5jbGllbnRXaWR0aC8yLHN0YWdlLmNsaWVudEhlaWdodC8yKTsKZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoJ3pvdXQnKS5vbmNsaWNrPSgpPT56b29tQXQoMC43NyxzdGFnZS5jbGllbnRXaWR0aC8yLHN0YWdlLmNsaWVudEhlaWdodC8yKTsKZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoJ3pmaXQnKS5vbmNsaWNrPSgpPT5maXQoKTsKbGV0IGJnRGFyaz10cnVlOwpmdW5jdGlvbiBhcHBseUJnKCl7c2NyZWVuTWFwLmNsYXNzTGlzdC50b2dnbGUoJ2xpZ2h0YmcnLCFiZ0RhcmspO2NvbnN0IGJyPWRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCdiZ3JlY3QnKTtpZihicilici5zZXRBdHRyaWJ1dGUoJ2ZpbGwnLGJnRGFyaz8nIzBmMTQxYic6JyNmZmZmZmYnKTtjb25zdCBiPWRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCdiZ3RvZ2dsZScpO2lmKGIpYi50ZXh0Q29udGVudD1iZ0Rhcms/J+KXkCc6J+KXkSc7aWYodGFyZ2V0KWhpZ2hsaWdodE1vZGVsKHRhcmdldC5uYW1lKTt9CmRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCdiZ3RvZ2dsZScpLm9uY2xpY2s9KCk9PntiZ0Rhcms9IWJnRGFyazthcHBseUJnKCk7fTsKc3RhZ2UuYWRkRXZlbnRMaXN0ZW5lcignd2hlZWwnLGU9PntlLnByZXZlbnREZWZhdWx0KCk7Y29uc3Qgcj1zdGFnZS5nZXRCb3VuZGluZ0NsaWVudFJlY3QoKTt6b29tQXQoZS5kZWx0YVk8MD8xLjEyOjAuODksZS5jbGllbnRYLXIubGVmdCxlLmNsaWVudFktci50b3ApO30se3Bhc3NpdmU6ZmFsc2V9KTsKY29uc3QgcHRzPW5ldyBNYXAoKTtsZXQgbGFzdD1udWxsLG1vdmVkPWZhbHNlLHN1cHByZXNzQ2xpY2s9ZmFsc2UscGluY2g9MCxyYWY9MDsKZnVuY3Rpb24gc2NoZWR1bGUoKXtpZihyYWYpcmV0dXJuO3JhZj1yZXF1ZXN0QW5pbWF0aW9uRnJhbWUoKCk9PntyYWY9MDthcHBseVZpZXcoKTt9KTt9CnN0YWdlLmFkZEV2ZW50TGlzdGVuZXIoJ3BvaW50ZXJkb3duJyxlPT57c3RhZ2Uuc2V0UG9pbnRlckNhcHR1cmUoZS5wb2ludGVySWQpO3B0cy5zZXQoZS5wb2ludGVySWQse3g6ZS5jbGllbnRYLHk6ZS5jbGllbnRZfSk7bW92ZWQ9ZmFsc2U7c3VwcHJlc3NDbGljaz1mYWxzZTtpZihwdHMuc2l6ZT09PTEpe2xhc3Q9e3g6ZS5jbGllbnRYLHk6ZS5jbGllbnRZfTtzdGFnZS5jbGFzc0xpc3QuYWRkKCdncmFiYmluZycpO31pZihwdHMuc2l6ZT09PTIpcGluY2g9dHdvRCgpO30pOwpzdGFnZS5hZGRFdmVudExpc3RlbmVyKCdwb2ludGVybW92ZScsZT0+e2lmKCFwdHMuaGFzKGUucG9pbnRlcklkKSlyZXR1cm47cHRzLnNldChlLnBvaW50ZXJJZCx7eDplLmNsaWVudFgseTplLmNsaWVudFl9KTtpZihwdHMuc2l6ZT49Mil7Y29uc3QgZD10d29EKCksYz10d29DKCkscj1zdGFnZS5nZXRCb3VuZGluZ0NsaWVudFJlY3QoKTtpZihwaW5jaCl7Y29uc3QgbnM9TWF0aC5tYXgoMC4yLE1hdGgubWluKDksdmlldy5zKihkL3BpbmNoKSkpLGtrPW5zL3ZpZXcucyxweD1jLngtci5sZWZ0LHB5PWMueS1yLnRvcDt2aWV3LnR4PXB4LShweC12aWV3LnR4KSprazt2aWV3LnR5PXB5LShweS12aWV3LnR5KSprazt2aWV3LnM9bnM7fXBpbmNoPWQ7bW92ZWQ9dHJ1ZTtzY2hlZHVsZSgpO3JldHVybjt9aWYobGFzdCl7Y29uc3QgZHg9ZS5jbGllbnRYLWxhc3QueCxkeT1lLmNsaWVudFktbGFzdC55O2lmKE1hdGguYWJzKGR4KStNYXRoLmFicyhkeSk+Myltb3ZlZD10cnVlO3ZpZXcudHgrPWR4O3ZpZXcudHkrPWR5O2xhc3Q9e3g6ZS5jbGllbnRYLHk6ZS5jbGllbnRZfTtzY2hlZHVsZSgpO319KTsKZnVuY3Rpb24gZW5kUHQoZSl7cHRzLmRlbGV0ZShlLnBvaW50ZXJJZCk7aWYocHRzLnNpemU8MilwaW5jaD0wO2lmKHB0cy5zaXplPT09MCl7bGFzdD1udWxsO3N0YWdlLmNsYXNzTGlzdC5yZW1vdmUoJ2dyYWJiaW5nJyk7c3VwcHJlc3NDbGljaz1tb3ZlZDtzZXRUaW1lb3V0KCgpPT5zdXBwcmVzc0NsaWNrPWZhbHNlLDMwKTt9fQpzdGFnZS5hZGRFdmVudExpc3RlbmVyKCdwb2ludGVydXAnLGVuZFB0KTtzdGFnZS5hZGRFdmVudExpc3RlbmVyKCdwb2ludGVyY2FuY2VsJyxlbmRQdCk7CmZ1bmN0aW9uIHR3b0QoKXtjb25zdCBhPVsuLi5wdHMudmFsdWVzKCldO3JldHVybiBNYXRoLmh5cG90KGFbMF0ueC1hWzFdLngsYVswXS55LWFbMV0ueSk7fQpmdW5jdGlvbiB0d29DKCl7Y29uc3QgYT1bLi4ucHRzLnZhbHVlcygpXTtyZXR1cm57eDooYVswXS54K2FbMV0ueCkvMix5OihhWzBdLnkrYVsxXS55KS8yfTt9CnN0YWdlLmFkZEV2ZW50TGlzdGVuZXIoJ2NsaWNrJyxlPT57aWYoc3VwcHJlc3NDbGljaylyZXR1cm47Y29uc3Qgcj1lLnRhcmdldC5jbG9zZXN0KCcubWFjaGluZScpO2lmKHIpc2V0VGFyZ2V0KCtyLmdldEF0dHJpYnV0ZSgnZGF0YS1ubycpKTt9KTsKd2luZG93LmFkZEV2ZW50TGlzdGVuZXIoJ3Jlc2l6ZScsKCk9PntpZihyZW5kZXJlZCYmc2NyZWVuTWFwLmNsYXNzTGlzdC5jb250YWlucygnb24nKSlmb2N1c1BpbigpO30pOwoKY29uc3Qgc2NyZWVuU2VsZWN0PWRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCdzY3JlZW5TZWxlY3QnKSxzY3JlZW5NYXA9ZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoJ3NjcmVlbk1hcCcpOwpmdW5jdGlvbiBzZXROYW1lKG5tKXt2YXIgYm94PWRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCdtaE5hbWUnKTtpZihib3guX21xdCljbGVhclRpbWVvdXQoYm94Ll9tcXQpO2JveC5jbGFzc0xpc3QucmVtb3ZlKCdtcW9uJyk7Ym94LnRleHRDb250ZW50PW5tO3ZhciB0cmllcz0wO2Z1bmN0aW9uIGNoZWNrKCl7dHJpZXMrKzt2YXIgY3c9Ym94LmNsaWVudFdpZHRoO2lmKGN3PT09MCYmdHJpZXM8MTIpe2JveC5fbXF0PXNldFRpbWVvdXQoY2hlY2ssNjApO3JldHVybjt9dmFyIHByb2JlPWRvY3VtZW50LmNyZWF0ZUVsZW1lbnQoJ3NwYW4nKTtwcm9iZS5zdHlsZS5jc3NUZXh0PSdwb3NpdGlvbjphYnNvbHV0ZTtsZWZ0Oi05OTk5cHg7dG9wOjA7d2hpdGUtc3BhY2U6bm93cmFwO3Zpc2liaWxpdHk6aGlkZGVuO2ZvbnQtd2VpZ2h0OjYwMDtmb250LXNpemU6MTRweCc7cHJvYmUudGV4dENvbnRlbnQ9bm07Ym94LmFwcGVuZENoaWxkKHByb2JlKTt2YXIgdGV4dFc9cHJvYmUuc2Nyb2xsV2lkdGg7Ym94LnJlbW92ZUNoaWxkKHByb2JlKTtpZih0ZXh0Vz5jdys0KXtib3gudGV4dENvbnRlbnQ9Jyc7dmFyIHRyYWNrPWRvY3VtZW50LmNyZWF0ZUVsZW1lbnQoJ3NwYW4nKTt0cmFjay5jbGFzc05hbWU9J21xdHJhY2snO3ZhciBhPWRvY3VtZW50LmNyZWF0ZUVsZW1lbnQoJ3NwYW4nKTthLnRleHRDb250ZW50PW5tO3ZhciBiPWRvY3VtZW50LmNyZWF0ZUVsZW1lbnQoJ3NwYW4nKTtiLnRleHRDb250ZW50PW5tO3RyYWNrLmFwcGVuZENoaWxkKGEpO3RyYWNrLmFwcGVuZENoaWxkKGIpO2JveC5hcHBlbmRDaGlsZCh0cmFjayk7dHJhY2suc3R5bGUuYW5pbWF0aW9uPSdtcWZsb3cgJytNYXRoLm1heCgxNCwodGV4dFcrNDYpLzE2KSsncyBsaW5lYXIgaW5maW5pdGUnO2JveC5jbGFzc0xpc3QuYWRkKCdtcW9uJyk7fX1ib3guX21xdD1zZXRUaW1lb3V0KGNoZWNrLDYwKTt9CmxldCBtb2RlbEhMPVtdOwpmdW5jdGlvbiBjbGVhck1vZGVsSEwoKXtmb3IoY29uc3QgeCBvZiBtb2RlbEhMKXt4Ll9nLmNsYXNzTGlzdC5yZW1vdmUoJ21obCcpO3guX2cuc2V0QXR0cmlidXRlKCdmaWxsJywoUk1BUFt4LnJhdGVdfHx7fSkuY29sb3J8fCcjODg4Jyk7aWYoeC5fdHh0KXguX3R4dC5zZXRBdHRyaWJ1dGUoJ2ZpbGwnLHJUeHQoeC5yYXRlKSk7fW1vZGVsSEw9W107fQpmdW5jdGlvbiBoaWdobGlnaHRNb2RlbChuYW1lKXtjbGVhck1vZGVsSEwoKTtpZighbmFtZSlyZXR1cm47bGV0IGNudD0wO2Zvcihjb25zdCB4IG9mIG1hY2hpbmVzKWlmKHgubmFtZT09PW5hbWUpY250Kys7aWYoY250PD0xKXJldHVybjtjb25zdCBmPWJnRGFyaz8nI2ZmZmZmZic6JyMxMDEzMWEnLHQ9YmdEYXJrPycjMTAxMzFhJzonI2ZmZmZmZic7Zm9yKGNvbnN0IHggb2YgbWFjaGluZXMpe2lmKHgubmFtZT09PW5hbWUpe3guX2cuY2xhc3NMaXN0LmFkZCgnbWhsJyk7eC5fZy5zZXRBdHRyaWJ1dGUoJ2ZpbGwnLGYpO2lmKHguX3R4dCl4Ll90eHQuc2V0QXR0cmlidXRlKCdmaWxsJyx0KTttb2RlbEhMLnB1c2goeCk7fX19CmZ1bmN0aW9uIHNldFRhcmdldChubyl7Y29uc3QgbT1ieU5vLmdldChubyk7aWYoIW0pcmV0dXJuOwogaWYodGFyZ2V0KXt0YXJnZXQuX2cuY2xhc3NMaXN0LnJlbW92ZSgndGFyZ2V0Jyk7aWYodGFyZ2V0Ll90eHQpdGFyZ2V0Ll90eHQuc2V0QXR0cmlidXRlKCdmb250LXNpemUnLDQuMyk7fQogaGlnaGxpZ2h0TW9kZWwobS5uYW1lKTsKIHRhcmdldD1tO20uX2cuY2xhc3NMaXN0LmFkZCgndGFyZ2V0Jyk7CiBpZihtLl90eHQpbS5fdHh0LnNldEF0dHJpYnV0ZSgnZm9udC1zaXplJyw1LjYpOwogY29uc3QgaGw9ZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoJ2hsJyk7aWYoaGwpe2hsLmlubmVySFRNTD0nJztjb25zdCBXPVRXKzIuNixIPVRIKzIuNjsKICBobC5hcHBlbmRDaGlsZChlbCgncmVjdCcse2NsYXNzOidobC1wdWxzZScseDptLmN4LVcvMix5Om0uY3ktSC8yLHdpZHRoOlcsaGVpZ2h0Okgscng6M30pKTsKICBobC5hcHBlbmRDaGlsZChlbCgncmVjdCcse2NsYXNzOidobC1ib3gnLHg6bS5jeC1XLzIseTptLmN5LUgvMix3aWR0aDpXLGhlaWdodDpILHJ4OjN9KSk7fQogY29uc3QgY29sPShSTUFQW20ucmF0ZV18fHt9KS5jb2xvcnx8JyM4ODgnO2RvY3VtZW50LmdldEVsZW1lbnRCeUlkKCdtVGFnJykudGV4dENvbnRlbnQ9bS5ubzsKIGNvbnN0IHJwPWRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCdtaFJhdGUnKTtycC50ZXh0Q29udGVudD0oKFJNQVBbbS5yYXRlXXx8e30pLmxhYmVsfHxtLnJhdGUpKyhtLmlzTmV3Pycg8J+GlSc6JycpO3JwLnN0eWxlLmJhY2tncm91bmQ9Y29sOwogc2V0TmFtZShtLm5hbWV8fCfmqZ/nqK7lkI0g5pyq6Kit5a6aJyk7CiBkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgnbWhObycpLnRleHRDb250ZW50PSflj7DnlaogJyttLm5vOwogY29uc3Qgc3A9ZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoJ21oU3BlYycpO2lmKG0ubmFtZSl7c3Auc3R5bGUuZGlzcGxheT0nYmxvY2snO3NwLmhyZWY9c3BlY1VybChtKTt9ZWxzZSBzcC5zdHlsZS5kaXNwbGF5PSdub25lJzsKIHVwZGF0ZU1hcmtlcigpO30KZnVuY3Rpb24gZ29NYXAobm8pe3NjcmVlbk1hcC5jbGFzc0xpc3QuYWRkKCdvbicpO2lmKCFyZW5kZXJlZClyZW5kZXIoKTtzZXRUYXJnZXQobm8pO3JlcXVlc3RBbmltYXRpb25GcmFtZShmb2N1c1Bpbik7fQoKCmJ1aWxkRnJvbShERUZBVUxUX0RCKTtyZW5kZXJSYXRlcygpO2FwcGx5QmcoKTsKPC9zY3JpcHQ+PC9ib2R5PjwvaHRtbD4=";
+const CW=16,CH=15,TW=14.5,TH=12.5;
+const ZLAB={p4:'4円パチンコ',p1:'1円パチンコ',s20:'20円スロット',s5:'5円スロット'};
+/* --- レート6種対応：CSVのレート表記のまま最大6色で自動色分け --- */
+const RPAL=['#e5322c','#f7941d','#3f8fd6','#f2cf1a','#9b59b6','#1abc9c'];
+function rLum(hex){if(!hex)return 0;var c=(''+hex).replace('#','');if(c.length<6)return 0;return 0.299*parseInt(c.substr(0,2),16)+0.587*parseInt(c.substr(2,2),16)+0.114*parseInt(c.substr(4,2),16);}
+function rKind(k){var c=(''+k).charAt(0).toLowerCase();return c==='p'?'パチンコ':(c==='s'?'スロット':'');}
+function rLabel(k){var m=(''+k).match(/(\d+(?:\.\d+)?)/);return m?m[1]+'円':(''+k);}
+function resolveRates(db){var def=(db.rates||[]);var map={};def.forEach(function(r){map[r.key]=r;});var order=[];def.forEach(function(r){if(order.indexOf(r.key)<0)order.push(r.key);});(db.machines||[]).forEach(function(m){if(m.rate&&order.indexOf(m.rate)<0)order.push(m.rate);});return order.map(function(k,i){var d=map[k]||{};return{key:k,label:d.label||rLabel(k),kind:('kind' in d)?d.kind:rKind(k),color:d.color||RPAL[i%RPAL.length]};});}
+function rTxt(rate){var col=(RMAP[rate]||{}).color||'#888';return rLum(col)>170?'#10131a':'#fff';}
+/* --- 新台表記の解析（CSVの生の表記は保持し、表示のみ分離） --- */
+function parseRateRaw(raw){var s=(''+(raw==null?'':raw)).trim();var isNew=false,base=s;
+ if(/^新台/.test(s)){isNew=true;base=s.replace(/^新台/,'').trim();}
+ else if(/新台$/.test(s)){isNew=true;base=s.replace(/新台$/,'').trim();}
+ if(!base)base=s;
+ if(/^[A-Za-z][A-Za-z0-9.]*$/.test(base))base=base.toLowerCase();
+ return{key:base,isNew:isNew};}
+function baseKeysDB(db){return{rates:db.rates,machines:(db.machines||[]).map(function(m){return{rate:parseRateRaw(m.rate).key};})};}
+const FAC={
+ blank:{label:"空白",color:"#88a0c0",path:null,fg:"#10131a"},
+ entrance:{label:'出入口',color:'#27ae60',path:'M14 6v15H3v-2h2V3h9v1h5v16h2v2h-4V6h-3zm-4 7c.55 0 1-.45 1-1s-.45-1-1-1-1 .45-1 1 .45 1 1 1z'},
+ settle:{label:'精算機',color:'#5b6b7a',path:'M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z'},
+ change:{label:'両替機',color:'#16a085',path:'M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z'},
+ toilet_m:{label:'男性',color:'#2877c4',path:'M14 7h-4c-1.1 0-2 .9-2 2v6h2v7h4v-7h2V9c0-1.1-.9-2-2-2zm-2-1c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z'},
+ toilet_w:{label:'女性',color:'#e0559b',path:'M13.94 8.31C13.62 7.52 12.85 7 12 7s-1.62.52-1.94 1.31l-2.81 7.03c-.27.65.22 1.36.93 1.36H10v5h4v-5h1.81c.71 0 1.2-.71.93-1.36l-2.81-7.02zM12 6c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z'},
+ rest:{label:'休憩所',color:'#b9883e',path:'M4 18v3h3v-3h10v3h3v-6H4v3zm15-8h3v3h-3v-3zM2 10h3v3H2v-3zm15 3H7V5c0-1.1.9-2 2-2h6c1.1 0 2 .9 2 2v8z'},
+ counter:{label:'カウンター',color:'#d4a017',fg:'#10131a',path:'M20 4H4v2h16V4zm1 10v-2l-1-5H4l-1 5v2h1v6h10v-6h4v6h2v-6h1zm-9 4H6v-4h6v4z'},
+ elevator:{label:'EV',color:'#2e6fb0',path:'M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3.5L15 10H9l3-3.5zM9 14h6l-3 3.5L9 14z'}
+};
+const NS='http://www.w3.org/2000/svg';
+const el=(t,a)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);return e;};
+function txtOn(hex){if(!hex)return "#10131a";const c=hex.replace("#","");if(c.length<6)return "#10131a";const r=parseInt(c.substr(0,2),16),g=parseInt(c.substr(2,2),16),b=parseInt(c.substr(4,2),16);return (0.299*r+0.587*g+0.114*b)>150?"#10131a":"#fff";}
+const svg=document.getElementById('svg');
+let DB,RATES,RMAP,machines,facilities;
+let scene,bgRect,facLayer,macLayer,selLayer,grabLayer,pvLayer;
+let view={s:1,tx:0,ty:0},mode='island',sel=null,history=[];let grabSel=[],grabN=0,placeInfo=null;
+
+function clone(o){return JSON.parse(JSON.stringify(o));}
+function loadDB(db){
+ DB=db; RATES=resolveRates(baseKeysDB(db)); RMAP=Object.fromEntries(RATES.map(r=>[r.key,r]));
+ const sni=document.getElementById('storeNameInput');if(sni)sni.value=DB.store||'';
+ machines=(db.machines||[]).map(m=>({no:+m.no,name:m.name||'',rate:m.rate,col:+m.col,row:+m.row}));
+ facilities=(db.facilities||[]).map(f=>({type:f.type,label:f.label||'',col:+f.col,row:+f.row,w:+f.w||3,h:+f.h||3}));
+ sel=null; history=[]; build(); fit();
+}
+function snap(){return{m:machines.map(x=>({no:x.no,name:x.name,rate:x.rate,col:x.col,row:x.row})),f:facilities.map(x=>({type:x.type,label:x.label,col:x.col,row:x.row,w:x.w,h:x.h}))};}
+function pushHistory(){history.push(snap());if(history.length>40)history.shift();}
+function build(){
+ svg.innerHTML='';
+ scene=el('g',{}); svg.appendChild(scene);
+ let xs=machines.map(m=>m.col*CW), ys=machines.map(m=>m.row*CH);
+ facilities.forEach(f=>{xs.push(f.col*CW);ys.push(f.row*CH);});
+ const x0=Math.min(...xs)-CW*3,y0=Math.min(...ys)-CH*3,x1=Math.max(...xs)+CW*3,y1=Math.max(...ys)+CH*3;
+ bgRect=el('rect',{x:x0,y:y0,width:x1-x0,height:y1-y0,fill:'#fff'}); scene.appendChild(bgRect);
+ facLayer=el('g',{}); scene.appendChild(facLayer);
+ macLayer=el('g',{}); scene.appendChild(macLayer);
+ for(const m of machines){const pr=parseRateRaw(m.rate);const col=(RMAP[pr.key]||{}).color||'#888';
+  const r=el('rect',{class:'mtile',x:m.col*CW-TW/2,y:m.row*CH-TH/2,width:TW,height:TH,rx:2,fill:col}); r.__m=m; m._t=r; macLayer.appendChild(r);
+  const t=el('text',{class:'tnum',x:m.col*CW,y:m.row*CH+0.2,'text-anchor':'middle','dominant-baseline':'central',fill:rTxt(pr.key)}); t.textContent=m.no; m._x=t; macLayer.appendChild(t);
+  if(pr.isNew)macLayer.appendChild(el('rect',{class:'new-outline',x:m.col*CW-TW/2-0.7,y:m.row*CH-TH/2-0.7,width:TW+1.4,height:TH+1.4,rx:2.6,fill:'none','pointer-events':'none'}));}
+ // ゾーン文字は表示しない（マップ上の文字は消す）
+ for(const f of facilities) drawFac(f);
+ selLayer=el('g',{}); scene.appendChild(selLayer);
+ grabLayer=el('g',{}); scene.appendChild(grabLayer); pvLayer=el('g',{}); scene.appendChild(pvLayer); drawGrab(); applyView(); refreshHint();
+}
+function drawFac(f){
+ if(f._g)f._g.remove();
+ const blank=(f.type==='blank'||f.type==='空白');
+ const t=FAC[f.type]||{label:f.type,color:'#9aa',path:null,fg:'#fff'};
+ const fillc=blank?(f.color||'#88a0c0'):t.color;
+ const g=el('g',{transform:`translate(${f.col*CW},${f.row*CH})`}); f._g=g; g.__f=f;
+ const w=f.w*CW,h=f.h*CH,fg=blank?txtOn(fillc):(t.fg||'#fff');
+ g.appendChild(el('rect',{class:'fac',x:-w/2,y:-h/2,width:w,height:h,rx:5,fill:fillc,opacity:.94,stroke:'#fff','stroke-width':1.4,style:'cursor:move'}));
+ const isz=Math.min(w,h)*0.5;
+ if(!blank&&t.path)g.appendChild(el('path',{d:t.path,fill:fg,'pointer-events':'none',transform:`translate(${-isz/2},${-h/2+Math.max(4,h*0.1)}) scale(${isz/24})`}));
+ const tl=el('text',{class:'faclabel',x:0,y:h/2-Math.max(5,h*0.12),'font-size':Math.min(w*0.32,h*0.26,13),fill:fg});tl.textContent=f.label||(blank?'':t.label);g.appendChild(tl);
+ facLayer.appendChild(g);
+}
+function applyView(){scene.setAttribute('transform',`translate(${view.tx},${view.ty}) scale(${view.s})`);drawSel();}
+function fit(){const b=bgRect;const x0=+b.getAttribute('x'),y0=+b.getAttribute('y'),W=+b.getAttribute('width'),H=+b.getAttribute('height');const vw=svg.clientWidth,vh=svg.clientHeight,s=Math.min(vw/W,vh/H)*0.96;view.s=s;view.tx=(vw-W*s)/2-x0*s;view.ty=(vh-H*s)/2-y0*s;applyView();}
+function toWorld(cx,cy){const r=svg.getBoundingClientRect();return{x:(cx-r.left-view.tx)/view.s,y:(cy-r.top-view.ty)/view.s};}
+
+// ---- 選択描画 ----
+function drawSel(){if(!selLayer)return;selLayer.innerHTML='';if(!sel)return;
+ if(sel.kind==='island'){let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;sel.list.forEach(m=>{x0=Math.min(x0,m.col*CW-TW/2);y0=Math.min(y0,m.row*CH-TH/2);x1=Math.max(x1,m.col*CW+TW/2);y1=Math.max(y1,m.row*CH+TH/2);});
+  selLayer.appendChild(el('rect',{class:'sel-island',x:x0-2,y:y0-2,width:x1-x0+4,height:y1-y0+4,rx:4}));}
+ else if(sel.kind==='fac'){const f=sel.f,w=f.w*CW,h=f.h*CH,x=f.col*CW,y=f.row*CH;
+  selLayer.appendChild(el('rect',{class:'sel-fac',x:x-w/2-2,y:y-h/2-2,width:w+4,height:h+4,rx:6}));
+  const hd=el('rect',{class:'handle',x:x+w/2-4,y:y+h/2-4,width:8,height:8,rx:1.5});hd.__handle=true;selLayer.appendChild(hd);}
+}
+
+// ---- 島グループ ----
+function islandOf(m){const same=machines.filter(x=>x.col===m.col&&x.rate===m.rate).sort((a,b)=>a.row-b.row);
+ let run=[m];const idx=same.findIndex(x=>x===m);
+ for(let i=idx-1;i>=0;i--){if(same[i].row===same[i+1].row-1)run.unshift(same[i]);else break;}
+ for(let i=idx+1;i<same.length;i++){if(same[i].row===same[i-1].row+1)run.push(same[i]);else break;}
+ return run;}
+
+// ---- ポインタ操作（capture非依存・window監視で取りこぼし防止）----
+let drag=null;
+function onDown(e){const w=toWorld(e.clientX,e.clientY);const tg=e.target;
+ if(tg.__handle){pushHistory();drag={type:'resize',f:sel.f,sx:w.x,sy:w.y,w0:sel.f.w,h0:sel.f.h};e.preventDefault&&e.preventDefault();return;}
+ if(mode==='grab5'||mode==='grab10'){
+  if(tg.classList&&tg.classList.contains('mtile')){const m=tg.__m;const i=grabSel.indexOf(m);if(i>=0)grabSel.splice(i,1);else if(grabSel.length<grabN)grabSel.push(m);else toast(grabN+'台選択済み。空いた所へドラッグで配置');drawGrab();updateGrabHint();e.preventDefault&&e.preventDefault();return;}
+  if(grabSel.length===grabN&&grabN>0){pushHistory();drag={type:'place'};updatePlace(w.x,w.y);e.preventDefault&&e.preventDefault();return;}
+  sel=null;drawSel();drag={type:'pan',sx:e.clientX,sy:e.clientY,tx:view.tx,ty:view.ty};return;}
+ if(mode==='newmark'&&tg.classList&&tg.classList.contains('mtile')){const m=tg.__m;pushHistory();toggleNewMark(m);build();saveLocal();const pr=parseRateRaw(m.rate);toast(m.no+'台を'+(pr.isNew?'新台に指定しました':'新台解除しました'));e.preventDefault&&e.preventDefault();return;}
+ if((mode==='island'||mode==='machine')&&tg.classList&&tg.classList.contains('mtile')){const m=tg.__m;pushHistory();
+  if(mode==='machine'){sel={kind:'island',list:[m]};drawSel();drag={type:'island',list:[m],sx:w.x,sy:w.y,start:[{m,c:m.col,r:m.row}]};}
+  else{const list=islandOf(m);sel={kind:'island',list};drawSel();drag={type:'island',list,sx:w.x,sy:w.y,start:list.map(x=>({m:x,c:x.col,r:x.row}))};}
+  e.preventDefault&&e.preventDefault();return;}
+ if(mode==='fac'){let g=tg.closest&&tg.closest('g');if(g&&g.__f){const f=g.__f;selectFac(f);pushHistory();drag={type:'fac',f,sx:w.x,sy:w.y,c0:f.col,r0:f.row};e.preventDefault&&e.preventDefault();return;}}
+ sel=null;drawSel();panelHide();drag={type:'pan',sx:e.clientX,sy:e.clientY,tx:view.tx,ty:view.ty};
+}
+function onMove(e){if(!drag)return;
+ if(drag.type==='place'){const w=toWorld(e.clientX,e.clientY);updatePlace(w.x,w.y);return;}
+ if(drag.type==='pan'){view.tx=drag.tx+(e.clientX-drag.sx);view.ty=drag.ty+(e.clientY-drag.sy);applyView();return;}
+ const w=toWorld(e.clientX,e.clientY);
+ if(drag.type==='island'){const dc=Math.round((w.x-drag.sx)/CW),dr=Math.round((w.y-drag.sy)/CH);
+  drag.start.forEach(z=>{z.m.col=z.c+dc;z.m.row=z.r+dr;const t=z.m._t,x=z.m._x;if(t){t.setAttribute('x',z.m.col*CW-TW/2);t.setAttribute('y',z.m.row*CH-TH/2);}if(x){x.setAttribute('x',z.m.col*CW);x.setAttribute('y',z.m.row*CH+0.2);}});drawSel();return;}
+ if(drag.type==='fac'){drag.f.col=drag.c0+Math.round((w.x-drag.sx)/CW);drag.f.row=drag.r0+Math.round((w.y-drag.sy)/CH);drag.f._g.setAttribute('transform',`translate(${drag.f.col*CW},${drag.f.row*CH})`);drawSel();syncPanel();return;}
+ if(drag.type==='resize'){drag.f.w=Math.max(1,drag.w0+Math.round((w.x-drag.sx)/CW));drag.f.h=Math.max(1,drag.h0+Math.round((w.y-drag.sy)/CH));drawFac(drag.f);drawSel();syncPanel();}
+}
+function onUp(){if(drag&&drag.type==='place'){commitPlace();drag=null;return;}if(drag&&drag.type!=='pan')saveLocal();drag=null;}
+svg.addEventListener('pointerdown',onDown);
+window.addEventListener('pointermove',onMove,{passive:false});
+window.addEventListener('pointerup',onUp);
+window.addEventListener('pointercancel',onUp);
+svg.addEventListener('wheel',e=>{e.preventDefault();const r=svg.getBoundingClientRect(),px=e.clientX-r.left,py=e.clientY-r.top;const f=e.deltaY<0?1.12:0.89;const ns=Math.max(0.15,Math.min(10,view.s*f)),k=ns/view.s;view.tx=px-(px-view.tx)*k;view.ty=py-(py-view.ty)*k;view.s=ns;applyView();},{passive:false});
+document.getElementById('zin').onclick=()=>{const ns=Math.min(10,view.s*1.25),k=ns/view.s,px=svg.clientWidth/2,py=svg.clientHeight/2;view.tx=px-(px-view.tx)*k;view.ty=py-(py-view.ty)*k;view.s=ns;applyView();};
+document.getElementById('zout').onclick=()=>{const ns=Math.max(0.15,view.s*0.8),k=ns/view.s,px=svg.clientWidth/2,py=svg.clientHeight/2;view.tx=px-(px-view.tx)*k;view.ty=py-(py-view.ty)*k;view.s=ns;applyView();};
+document.getElementById('fit').onclick=fit;
+
+// ---- モード ----
+function refreshHint(){
+ if(mode==='grab5'||mode==='grab10'){updateGrabHint();return;}
+ const H={island:'島モード：台をドラッグでその島ごと移動／空白ドラッグで全体移動・ホイールで拡大',machine:'1台モード：台をドラッグで1台だけ移動／空白ドラッグで全体移動',fac:'設備モード：アイコンをドラッグで移動／角ハンドルで拡大縮小／右パネルで種別・大きさ・削除',newmark:'新台指定モード：台をタップすると新台（緑枚）にトグル。もう一度タップで解除'};
+ document.getElementById('hint').textContent=H[mode]||'';}
+function setMode(mm){clearGrab();mode=mm;sel=null;drawSel();panelHide();
+ grabN=mm==='grab5'?5:(mm==='grab10'?10:0);
+ ['mGrab5','mGrab10','mIsland','mMachine','mFac','mNew'].forEach(id=>document.getElementById(id).classList.remove('on'));
+ const map={grab5:'mGrab5',grab10:'mGrab10',island:'mIsland',machine:'mMachine',fac:'mFac',newmark:'mNew'};
+ if(map[mm])document.getElementById(map[mm]).classList.add('on');
+ refreshHint();}
+function toggleNewMark(m){const pr=parseRateRaw(m.rate);m.rate=pr.isNew?pr.key:('新台'+pr.key);}
+// ---- 5台/10台 まとめ配置 ----
+function clearGrab(){grabSel=[];placeInfo=null;if(grabLayer)grabLayer.innerHTML='';if(pvLayer)pvLayer.innerHTML='';}
+function drawGrab(){if(!grabLayer)return;grabLayer.innerHTML='';grabSel.forEach((m,i)=>{grabLayer.appendChild(el('rect',{class:'grabsel',x:m.col*CW-TW/2-1.5,y:m.row*CH-TH/2-1.5,width:TW+3,height:TH+3,rx:3}));const t=el('text',{x:m.col*CW,y:m.row*CH-TH/2-2,'text-anchor':'middle','font-size':5,'font-weight':800,fill:'#ff8c1a'});t.textContent=(i+1);grabLayer.appendChild(t);});}
+function updateGrabHint(){if(mode!=='grab5'&&mode!=='grab10')return;var n=grabSel.length;var t=(n<grabN)?(grabN+'台ずつ：台をタップで選択（'+n+'/'+grabN+'）'):(grabN+'台ずつ：選択完了（'+grabN+'/'+grabN+'）→空いた所へドラッグ（左上が基準）で横1列に配置');document.getElementById('hint').textContent=t;}
+function updatePlace(wx,wy){var c0=Math.round((wx+TW/2)/CW),r0=Math.round((wy+TH/2)/CH);var occ=new Set(machines.filter(function(m){return grabSel.indexOf(m)<0;}).map(function(m){return m.col+','+m.row;}));var ok=true,cells=[];for(var i=0;i<grabN;i++){var c=c0+i,r=r0;cells.push([c,r]);if(occ.has(c+','+r))ok=false;}placeInfo={c0:c0,r0:r0,ok:ok,cells:cells};drawPlace();}
+function drawPlace(){if(!pvLayer)return;pvLayer.innerHTML='';if(!placeInfo)return;placeInfo.cells.forEach(function(cell){pvLayer.appendChild(el('rect',{class:'pv',x:cell[0]*CW-TW/2,y:cell[1]*CH-TH/2,width:TW,height:TH,rx:2,fill:placeInfo.ok?'#10b3ff':'#e5322c',opacity:0.6}));});var bx=placeInfo.c0*CW-TW/2-2,by=placeInfo.r0*CH-TH/2-2,bw=(grabN-1)*CW+TW+4,bh=TH+4;pvLayer.appendChild(el('rect',{x:bx,y:by,width:bw,height:bh,rx:3,fill:'none',stroke:placeInfo.ok?'#0a7a3a':'#c0392b','stroke-width':1.6,'stroke-dasharray':'4 3'}));}
+function commitPlace(){if(!placeInfo)return;if(!placeInfo.ok){if(pvLayer)pvLayer.innerHTML='';placeInfo=null;if(history.length)history.pop();toast('そこは台があるため配置できません');return;}placeInfo.cells.forEach(function(cell,i){var m=grabSel[i];m.col=cell[0];m.row=cell[1];});var n=grabN;grabSel=[];placeInfo=null;build();saveLocal();updateGrabHint();toast(n+'台を横1列に配置しました');}
+document.getElementById('mGrab5').onclick=()=>setMode('grab5');
+document.getElementById('mGrab10').onclick=()=>setMode('grab10');
+document.getElementById('mIsland').onclick=()=>setMode('island');
+document.getElementById('mMachine').onclick=()=>setMode('machine');
+document.getElementById('mFac').onclick=()=>setMode('fac');
+document.getElementById('mNew').onclick=()=>setMode('newmark');
+
+// ---- 設備 追加・選択・パネル ----
+function selectFac(f){setModeIfNeeded();sel={kind:'fac',f};drawSel();panelShow(f);}
+function setModeIfNeeded(){if(mode!=='fac')setMode('fac');}
+document.getElementById('addBtn').onclick=()=>{pushHistory();const ty=document.getElementById('addType').value;
+ // 画面中央の列・行に置く
+ const c=Math.round((svg.clientWidth/2-view.tx)/view.s/CW),r=Math.round((svg.clientHeight/2-view.ty)/view.s/CH);
+ const f={type:ty,label:(ty==='blank'?'':((FAC[ty]||{}).label||ty)),col:c,row:r,w:3,h:3};if(ty==='blank')f.color='#88a0c0';facilities.push(f);drawFac(f);setMode('fac');selectFac(f);saveLocal();toast(ty==='blank'?'空白を追加しました（色はパネルで選択）':'設備を追加しました（ドラッグで移動）');};
+const panel=document.getElementById('panel');
+function panelShow(f){panel.classList.add('show');document.getElementById('pType').value=f.type;document.getElementById('pLabel').value=f.label;document.getElementById('pColor').value=f.color||'#88a0c0';syncPanel();}
+function panelHide(){panel.classList.remove('show');}
+function syncPanel(){if(!sel||sel.kind!=='fac')return;const f=sel.f;document.getElementById('pCol').value=f.col;document.getElementById('pRow').value=f.row;document.getElementById('pW').value=f.w;document.getElementById('pH').value=f.h;}
+function panelApply(){if(!sel||sel.kind!=='fac')return;const f=sel.f;f.type=document.getElementById('pType').value;f.label=document.getElementById('pLabel').value;f.col=+document.getElementById('pCol').value;f.row=+document.getElementById('pRow').value;f.w=Math.max(1,+document.getElementById('pW').value);f.h=Math.max(1,+document.getElementById('pH').value);f.color=document.getElementById('pColor').value;drawFac(f);drawSel();}
+['pType','pLabel','pColor','pCol','pRow','pW','pH'].forEach(id=>{const e=document.getElementById(id);e.addEventListener('focus',()=>pushHistory());e.addEventListener('input',()=>{panelApply();saveLocal();});});
+document.getElementById('pDel').onclick=()=>{if(!sel||sel.kind!=='fac')return;pushHistory();const f=sel.f;f._g.remove();facilities=facilities.filter(x=>x!==f);sel=null;drawSel();panelHide();saveLocal();toast('削除しました');};
+
+// ---- 元に戻す ----
+document.getElementById('undo').onclick=()=>{if(!history.length){toast('これ以上戻せません');return;}const h=history.pop();machines=h.m.map(m=>({...m}));facilities=h.f.map(f=>({...f}));sel=null;build();saveLocal();toast('元に戻しました');};
+
+// ---- 読込 ----
+document.getElementById('load').onclick=()=>document.getElementById('file').click();
+document.getElementById('file').addEventListener('change',ev=>{const file=ev.target.files[0];if(!file)return;const rd=new FileReader();rd.onload=()=>{try{applyLoad(file.name,rd.result);}catch(e){toast('読込エラー:'+e.message);}ev.target.value='';};rd.readAsText(file,'utf-8');});
+function splitCsv(line){const o=[];let c='',q=false;for(let i=0;i<line.length;i++){const ch=line[i];if(q){if(ch==='"'){if(line[i+1]==='"'){c+='"';i++;}else q=false;}else c+=ch;}else{if(ch===','){o.push(c);c='';}else if(ch==='"')q=true;else c+=ch;}}o.push(c);return o;}
+function applyLoad(fn,text){if(/\.json$/i.test(fn)||text.trim()[0]==='{'){const db=JSON.parse(text);if(!db.machines)throw new Error('machines が無い');loadDB(db);saveLocal();toast('JSON読込: '+(db.store||fn));return;}
+ text=text.replace(/^\uFEFF/,'');const lines=text.split(/\r?\n/).filter(l=>l.trim());const head=splitCsv(lines[0]).map(h=>h.replace(/\s/g,''));const has=n=>head.indexOf(n);
+ if(has('種別')>=0||has('type')>=0){const it=Math.max(has('種別'),has('type')),il=Math.max(has('ラベル'),has('label')),ic=Math.max(has('列'),has('col')),ir=Math.max(has('行'),has('row')),iw=Math.max(has('幅'),has('w')),ih=Math.max(has('高さ'),has('h'));
+  facilities=[];let importedStore=null;const ferrs=[];
+  for(let i=1;i<lines.length;i++){const c=splitCsv(lines[i]);if(!c[it])continue;const ty=c[it].trim();
+   if(/^(店舗|店舗名|store)$/i.test(ty)){importedStore=(c[il]||'').trim();continue;}
+   const fc=+c[ic],fr=+c[ir];
+   if(!isFinite(fc)||!isFinite(fr)){ferrs.push((i+1)+'行目: 「'+ty+'」の列/行が数値ではありません');continue;}
+   facilities.push({type:ty,label:(c[il]||'').trim(),col:fc,row:fr,w:+c[iw]||3,h:+c[ih]||3});}
+  DB.facilities=facilities;
+  if(importedStore){DB.store=importedStore;const sni=document.getElementById('storeNameInput');if(sni)sni.value=importedStore;}
+  build();fit();saveLocal();toast('設備CSV読込: '+facilities.length+'件'+(importedStore?'、店舗名：'+importedStore:'')+(ferrs.length?('／'+ferrs.length+'行スキップ'):''));
+  if(ferrs.length)alert('以下の行をスキップしました:\n\n'+ferrs.join('\n'));return;}
+ const iNo=has('台番')>=0?has('台番'):0,iR=has('レート')>=0?has('レート'):1,iNm=has('機種名')>=0?has('機種名'):2,iC=has('列')>=0?has('列'):3,iRw=has('行')>=0?has('行'):4;
+ const ms=[],errs=[],seen=new Set();
+ for(let i=1;i<lines.length;i++){const c=splitCsv(lines[i]);if(!c[iNo]||!String(c[iNo]).trim())continue;
+  const no=+c[iNo],col=+c[iC],row=+c[iRw];
+  if(!isFinite(no)){errs.push((i+1)+'行目: 台番「'+c[iNo]+'」が数値ではありません');continue;}
+  if(seen.has(no)){errs.push((i+1)+'行目: 台番'+no+'が重複しています');continue;}
+  if(!isFinite(col)||!isFinite(row)){errs.push((i+1)+'行目: 台番'+no+'の列/行が数値ではありません');continue;}
+  seen.add(no);ms.push({no:no,rate:(c[iR]||'').trim(),name:(c[iNm]||'').trim(),col:col,row:row});}
+ if(!ms.length)throw new Error('有効な台データが1件もありません（列の並びを確認してください）');
+ DB.machines=ms;machines=ms.map(m=>({...m}));RATES=resolveRates(baseKeysDB(DB));RMAP=Object.fromEntries(RATES.map(r=>[r.key,r]));build();fit();saveLocal();
+ toast('台CSV読込: '+ms.length+'台（レート'+RATES.length+'種）'+(errs.length?('／'+errs.length+'行スキップ'):''));
+ if(errs.length)alert('以下の行をスキップしました:\n\n'+errs.slice(0,20).join('\n')+(errs.length>20?'\n…他'+(errs.length-20)+'件':''));}
+
+// ---- 書き出し ----
+function dl(name,text,type){const b=new Blob([text],{type});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1500);}
+function currentDB(){return{store:DB.store||'店舗名',rates:RATES,machines:machines.map(m=>({no:m.no,rate:m.rate,name:m.name,col:m.col,row:m.row})),facilities:facilities.map(f=>({type:f.type,label:f.label,col:f.col,row:f.row,w:f.w,h:f.h,color:f.color}))};}
+document.getElementById('storeNameInput').addEventListener('input',()=>{DB.store=document.getElementById('storeNameInput').value.trim();saveLocal();});
+document.getElementById('expJson').onclick=()=>{dl((DB.store||'layout')+'.json',JSON.stringify(currentDB(),null,1),'application/json');toast('JSONを保存しました');};
+document.getElementById('expCsvM').onclick=()=>{const r=[['台番','レート','機種名','列','行']];machines.forEach(m=>r.push([m.no,m.rate,m.name,m.col,m.row]));dl('layout.csv','\uFEFF'+r.map(x=>x.join(',')).join('\r\n'),'text/csv');toast('台CSVを保存しました');};
+document.getElementById('expCsvF').onclick=()=>{const r=[['種別','ラベル','列','行','幅','高さ'],['店舗名',DB.store||'','','','','']];facilities.forEach(f=>r.push([f.type,f.label,f.col,f.row,f.w,f.h]));dl('facilities.csv','\uFEFF'+r.map(x=>x.join(',')).join('\r\n'),'text/csv');toast('設備CSVを保存しました');};
+document.getElementById('expHtml').onclick=()=>{const bytes=Uint8Array.from(atob(VIEWER_B64),c=>c.charCodeAt(0));const tpl=new TextDecoder('utf-8').decode(bytes);
+ const json=JSON.stringify(currentDB()).replace(/</g,'\\u003c');
+ const out=tpl.replace('__DB__',()=>json);
+ dl('index.html',out,'text/html');toast('index.htmlを書き出しました（そのままGitHubへ）');};
+
+// ---- toast ----
+let tmr;function toast(t){const e=document.getElementById('toast');e.textContent=t;e.classList.add('show');clearTimeout(tmr);tmr=setTimeout(()=>e.classList.remove('show'),1800);}
+
+// ---- 自動保存（このブラウザに配置を記憶）＆ 復元 ----
+function lsKey(){return 'fm:'+(((DB&&DB.store)||(DEFAULT_DB&&DEFAULT_DB.store)||'store'));}
+function saveLocal(){try{localStorage.setItem(lsKey(),JSON.stringify(currentDB()));localStorage.setItem('fm:last',(DB&&DB.store)||'');}catch(e){}}
+function defKey(){return 'fmdef:'+(((DB&&DB.store)||(DEFAULT_DB&&DEFAULT_DB.store)||'store'));}
+document.getElementById('rememberDefault').onclick=()=>{try{localStorage.setItem(defKey(),JSON.stringify(currentDB()));toast('現在の配置を「初期値」として記憶しました');}catch(e){toast('記憶に失敗しました');}};
+document.getElementById('resetDefault').onclick=()=>{
+ var base=null;try{var s=localStorage.getItem(defKey());if(s)base=JSON.parse(s);}catch(e){}
+ var isHome=(((DB&&DB.store)||'')===((DEFAULT_DB&&DEFAULT_DB.store)||''));
+ if(!base&&!isHome){toast('この店舗の「初期値記憶」がありません。先に基本配置を作って「初期値記憶」を押してください');return;}
+ if(!confirm(base?'記憶した初期値に戻します。よろしいですか？':'初期配置に戻します。よろしいですか？'))return;
+ try{localStorage.removeItem(lsKey());}catch(e){}
+ loadDB(base||clone(DEFAULT_DB));saveLocal();toast(base?'記憶した初期値に戻しました':'初期配置に戻しました');};
+(function init(){let saved=null;
+ try{
+  let lastStore=null;try{lastStore=localStorage.getItem('fm:last');}catch(e){}
+  if(lastStore){const s=localStorage.getItem('fm:'+lastStore);if(s)saved=JSON.parse(s);}
+  if(!saved){const s=localStorage.getItem('fm:'+((DEFAULT_DB&&DEFAULT_DB.store)||'store'));if(s)saved=JSON.parse(s);}
+ }catch(e){}
+ if(saved&&saved.machines&&saved.machines.length){loadDB(saved);setTimeout(()=>toast('前回の配置を復元しました（'+(saved.store||'店舗名未設定')+'）'),350);}
+ else{loadDB(clone(DEFAULT_DB));}
+})();
+</script></body></html>
